@@ -64,8 +64,8 @@ export function AdvisorStatusPanel({
         title="Pending"
         tone="amber"
         items={pending}
-        rightLabel="Submitted+Paid FYP"
-        rightValue={(a) => formatPeso(a.submitted.fyp + a.paid.fyp)}
+        rightLabel="Open FYP"
+        rightValue={(a) => formatPeso(a.open.fyp)}
       />
       <List
         title="Non-Producing"
