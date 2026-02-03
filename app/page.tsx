@@ -166,7 +166,7 @@ export default function Page() {
             <div className="grid gap-4 md:grid-cols-4">
               <KpiCard title="Submitted FYP" value={formatPeso(data.team.submitted.fyp)} icon={<Clock3 size={18} />} />
               <KpiCard title="Paid FYP" value={formatPeso(data.team.paid.fyp)} />
-              <KpiCard title="Pending advisors" value={formatNumber(producingCounts.pending)} sub="No approved yet, but has Submitted/Paid" />
+              <KpiCard title="Advisors with pending cases" value={formatNumber(producingCounts.pending)} sub="(Name) means already producing" />
               <KpiCard title="Non-producing advisors" value={formatNumber(producingCounts.nonProducing)} sub="No Submitted / Paid / Approved" />
             </div>
           </Section>
