@@ -60,7 +60,8 @@ export async function GET(req: Request) {
     const rosterSheet = getSheetName('ROSTER_SHEET_NAME', 'Roster');
 
     const [newBusinessValues, rosterValues] = await Promise.all([
-      getSheetValues(newBusinessSheet, 'A:Z'),
+      // Use a wider range so adding future columns won't break parsing.
+      getSheetValues(newBusinessSheet, 'A:AZ'),
       getSheetValues(rosterSheet, 'A:A'),
     ]);
 

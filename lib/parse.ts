@@ -42,8 +42,45 @@ export const normalizeName = (name: string): string => {
 
 export const parseSalesRows = (values: string[][]): SalesRow[] => {
   if (!values || values.length < 2) return [];
-  const headers = values[0].map(h => String(h).trim());
-  const idx = (h: string) => headers.findIndex(x => x.toLowerCase() === h.toLowerCase());
+
+  // Normalize headers to handle line breaks, extra spaces, etc.
+  const norm = (s: unknown) => String(s ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+  // Some users add a title row above the actual headers (merged cells, etc.).
+  // Detect the most likely header row by searching the first few rows for known columns.
+  const expected = [
+    'month approved',
+    'policy number',
+    'advisor',
+    'unit manager',
+    'product',
+    'date submitted',
+    'date paid',
+    'date approved',
+  ];
+
+  let headerRowIndex = 0;
+  let bestScore = -1;
+  const scanLimit = Math.min(values.length, 10);
+  for (let i = 0; i < scanLimit; i++) {
+    const row = values[i] ?? [];
+    const headersHere = row.map(norm);
+    const score = expected.reduce((acc, h) => acc + (headersHere.includes(h) ? 1 : 0), 0);
+    if (score > bestScore) {
+      bestScore = score;
+      headerRowIndex = i;
+    }
+  }
+
+  // If we couldn't find at least a few expected headers, fall back to first row.
+  if (bestScore < 3) headerRowIndex = 0;
+
+  const headers = (values[headerRowIndex] ?? []).map((h) => String(h ?? '').replace(/\s+/g, ' ').trim());
+  const headersNorm = headers.map(norm);
+  const idx = (h: string) => headersNorm.findIndex(x => x === norm(h));
 
   const get = (row: string[], h: string) => {
     const i = idx(h);
@@ -52,7 +89,7 @@ export const parseSalesRows = (values: string[][]): SalesRow[] => {
   };
 
   return values
-    .slice(1)
+    .slice(headerRowIndex + 1)
     .filter(r => r.some(c => String(c ?? '').trim() !== ''))
     .map(r => {
       const row: SalesRow = {
