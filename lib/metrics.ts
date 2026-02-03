@@ -82,6 +82,7 @@ export const buildAdvisorStatuses = (
       approved: emptyKpis(),
       submitted: emptyKpis(),
       paid: emptyKpis(),
+      open: emptyKpis(),
     });
   }
 
@@ -102,6 +103,7 @@ export const buildAdvisorStatuses = (
         approved: emptyKpis(),
         submitted: emptyKpis(),
         paid: emptyKpis(),
+        open: emptyKpis(),
       });
     }
 
@@ -111,6 +113,14 @@ export const buildAdvisorStatuses = (
     if (isApprovedInRange(r, start, end)) addRowToKpis(st.approved, r);
     if (inRange(r.dateSubmitted, start, end)) addRowToKpis(st.submitted, r);
     if (inRange(r.datePaid, start, end)) addRowToKpis(st.paid, r);
+
+    // "Open" pipeline: Submitted/Paid activity that has no approval proof yet.
+    // This avoids counting already-approved rows as pending.
+    const hasApprovalProof = Boolean(r.dateApproved) || Boolean((r.monthApproved ?? '').trim());
+    if (!hasApprovalProof) {
+      if (inRange(r.dateSubmitted, start, end)) addRowToKpis(st.open, r);
+      if (inRange(r.datePaid, start, end)) addRowToKpis(st.open, r);
+    }
   }
 
   // If unit filter is applied, remove roster advisors that definitely belong to other units is impossible
@@ -138,11 +148,16 @@ export const buildAdvisorStatuses = (
   for (const a of advisors) {
     const approvedCases = a.approved.caseCount;
     const hasApproved = approvedCases > 0 || a.approved.fyc > 0 || a.approved.fyp > 0;
-    const hasPending = (a.submitted.caseCount > 0 || a.submitted.fyp > 0 || a.paid.caseCount > 0 || a.paid.fyp > 0);
+
+    // Pending = has "open" (unapproved) cases in the selected range.
+    const hasOpen = (a.open.caseCount > 0 || a.open.fyp > 0);
 
     if (hasApproved) producing.push(a);
-    else if (hasPending) pending.push(a);
-    else nonProducing.push(a);
+    if (hasOpen) {
+      // If the advisor is already producing, show them in Pending as well but in parentheses.
+      pending.push(hasApproved ? { ...a, advisor: `(${a.advisor})` } : a);
+    }
+    if (!hasApproved && !hasOpen) nonProducing.push(a);
   }
 
   // Sort for readability
@@ -150,7 +165,7 @@ export const buildAdvisorStatuses = (
     arr.sort((a, b) => (b.approved[key] as number) - (a.approved[key] as number));
 
   sortBy(producing, 'fyc');
-  pending.sort((a, b) => (b.submitted.fyp + b.paid.fyp) - (a.submitted.fyp + a.paid.fyp));
+  pending.sort((a, b) => (b.open.fyp) - (a.open.fyp));
   nonProducing.sort((a, b) => a.advisor.localeCompare(b.advisor));
 
   return { advisors, producing, pending, nonProducing };

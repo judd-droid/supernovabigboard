@@ -37,6 +37,9 @@ export type AdvisorStatus = {
   approved: MoneyKpis;
   submitted: MoneyKpis;
   paid: MoneyKpis;
+  // "Open" = Submitted/Paid activity that has no approval proof yet
+  // (Month Approved and Date Approved are both blank). Used to drive the Pending list.
+  open: MoneyKpis;
   // classification will be derived server-side
 };
 
