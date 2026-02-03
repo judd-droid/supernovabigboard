@@ -114,12 +114,12 @@ export const buildAdvisorStatuses = (
     if (inRange(r.dateSubmitted, start, end)) addRowToKpis(st.submitted, r);
     if (inRange(r.datePaid, start, end)) addRowToKpis(st.paid, r);
 
-    // "Open" pipeline: Submitted/Paid activity that has no approval proof yet.
+    // "Open" pipeline: Paid activity (case is with underwriting) that has no approval proof yet.
+    // Business rule: a submitted case is not considered pending until it's paid by the client.
     // This avoids counting already-approved rows as pending.
     const hasApprovalProof = Boolean(r.dateApproved) || Boolean((r.monthApproved ?? '').trim());
     if (!hasApprovalProof) {
-      // Count each case once as "open" if it has any submitted/paid activity in range
-      const openInRange = inRange(r.dateSubmitted, start, end) || inRange(r.datePaid, start, end);
+      const openInRange = inRange(r.datePaid, start, end);
       if (openInRange) addRowToKpis(st.open, r);
     }
   }
