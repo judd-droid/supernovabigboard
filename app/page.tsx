@@ -27,7 +27,7 @@ const presetLabel: Record<RangePreset, string> = {
   MTD: 'Month-to-date',
   QTD: 'Quarter-to-date',
   YTD: 'Year-to-date',
-  PREV_MONTH: 'Previous month',
+  PREV_MONTH: 'Previous Month',
   CUSTOM: 'Custom',
 };
 
@@ -101,7 +101,13 @@ export default function Page() {
               <Select
                 value={preset}
                 onChange={(v) => setPreset(v as RangePreset)}
-                options={['MTD', 'QTD', 'YTD', 'PREV_MONTH', 'CUSTOM']}
+                options={[
+                  { value: 'MTD', label: 'Month-to-date' },
+                  { value: 'QTD', label: 'Quarter-to-date' },
+                  { value: 'YTD', label: 'Year-to-date' },
+                  { value: 'PREV_MONTH', label: 'Previous Month' },
+                  { value: 'CUSTOM', label: 'Custom' },
+                ]}
               />
             </Field>
 

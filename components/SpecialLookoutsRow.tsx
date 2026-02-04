@@ -104,17 +104,17 @@ export function SpecialLookoutsRow({
         <div className="flex items-center justify-between p-3 border-b border-slate-200">
           <div className="flex items-center gap-2">
             <Badge tone="green">Consistent Monthly Producers</Badge>
-            <div className="text-xs text-slate-500">As of {consistentMonthlyProducers.asOfMonth}</div>
+            <div className="text-xs text-slate-500">As of Previous Month ({consistentMonthlyProducers.asOfMonth})</div>
           </div>
           <div className="text-xs text-slate-400">Streak</div>
         </div>
         <div className="max-h-[320px] overflow-auto p-3">
-          <AnyList title="3+ Months CMP" items={threePlus} tone="green" />
-          <AnyList title="Watchlist: 2 Months" items={watch2} tone="amber" />
-          <AnyList title="Watchlist: 1 Month" items={watch1} tone="slate" />
+          <AnyList title="3+ Months CMP as of Previous Month" items={threePlus} tone="green" />
+          <AnyList title="2 Months CMP as of Previous Month" items={watch2} tone="amber" />
+          <AnyList title="1 Month CMP as of Previous Month" items={watch1} tone="slate" />
         </div>
         <div className="p-3 border-t border-slate-200 text-xs text-slate-500">
-          Rule: 3+ consecutive months with ≥1 approved case. Window ends on the selected range end month. Carries over from "Months CMP 2025" when streak reaches Jan 2026.
+          Rule: consecutive months with ≥1 approved case. Window ends on the previous month. Carries over from "Months CMP 2025" when streak reaches Jan 2026.
         </div>
       </div>
 

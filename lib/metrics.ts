@@ -426,8 +426,8 @@ export const buildConsistentMonthlyProducers = (
     producedMonths.get(k)!.add(monthKey(md));
   }
 
-  // CMP window ends on the last date of the selected range.
-  // We compute the streak ending in the month that contains `rangeEnd`.
+  // CMP window ends on the month that contains `rangeEnd` (the caller controls
+  // what "as of" date to use — typically the last day of the previous month).
   const endMonthStart = new Date(Date.UTC(rangeEnd.getUTCFullYear(), rangeEnd.getUTCMonth(), 1));
   const asOfMonth = monthKey(endMonthStart);
 

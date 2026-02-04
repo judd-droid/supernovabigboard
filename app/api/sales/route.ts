@@ -94,10 +94,18 @@ export async function GET(req: Request) {
     };
 
     const spartanMonitoring = buildSpartanMonitoring(statuses.advisors, rosterEntries, unit);
+
+    // Consistent Monthly Producers (CMP) should be computed "as of the previous month"
+    // (i.e., the most recently completed calendar month), regardless of the selected range.
+    const cmpEnd = new Date(Date.UTC(
+      manilaNow.getFullYear(),
+      manilaNow.getMonth(),
+      0
+    ));
+
     const specialLookouts = {
       productSellers: buildProductSellers(rows, range.start, range.end, unit, rosterIndex),
-      // CMP window ends on the selected range end.
-      consistentMonthlyProducers: buildConsistentMonthlyProducers(rows, rosterEntries, unit, range.end),
+      consistentMonthlyProducers: buildConsistentMonthlyProducers(rows, rosterEntries, unit, cmpEnd),
     };
 
     const resp: ApiResponse = {
