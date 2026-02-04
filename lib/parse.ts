@@ -1,4 +1,4 @@
-import { SalesRow } from './types';
+import { RosterEntry, SalesRow } from './types';
 
 const currencyToNumber = (v: unknown): number => {
   if (v === null || v === undefined) return 0;
@@ -117,12 +117,87 @@ export const parseSalesRows = (values: string[][]): SalesRow[] => {
 };
 
 export const parseRoster = (values: string[][]): string[] => {
-  // Expect a single column header "Advisors" then names
-  if (!values || values.length < 2) return [];
-  return values
-    .slice(1)
-    .map(r => String(r[0] ?? '').trim())
-    .filter(Boolean);
+  // Backward compatible helper: return just advisor names.
+  return parseRosterEntries(values).map(e => e.advisor);
+};
+
+export const parseRosterEntries = (values: string[][]): RosterEntry[] => {
+  if (!values || values.length === 0) return [];
+
+  const norm = (s: unknown) => String(s ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+  // Detect header row (first few rows) so we can handle title rows or formatting.
+  const expected = ['advisors', 'advisor', 'unit', 'spa / leg', 'spa/leg', 'program', 'pa date', 'tenure'];
+  let headerRowIndex = 0;
+  let bestScore = -1;
+  const scanLimit = Math.min(values.length, 10);
+  for (let i = 0; i < scanLimit; i++) {
+    const row = values[i] ?? [];
+    const headersHere = row.map(norm);
+    const score = expected.reduce((acc, h) => acc + (headersHere.includes(h) ? 1 : 0), 0);
+    if (score > bestScore) {
+      bestScore = score;
+      headerRowIndex = i;
+    }
+  }
+
+  // If no recognizable header, assume old format: first column is names.
+  if (bestScore < 1) {
+    return values
+      .slice(1)
+      .map(r => ({ advisor: String(r[0] ?? '').trim() }))
+      .filter(r => Boolean(r.advisor));
+  }
+
+  const headers = (values[headerRowIndex] ?? []).map((h) => String(h ?? '').replace(/\s+/g, ' ').trim());
+  const headersNorm = headers.map(norm);
+  const idxAny = (candidates: string[]) => {
+    for (const c of candidates) {
+      const i = headersNorm.findIndex(x => x === norm(c));
+      if (i !== -1) return i;
+    }
+    return -1;
+  };
+
+  const iAdvisor = idxAny(['Advisors', 'Advisor', 'Name']);
+  const iUnit = idxAny(['Unit']);
+  const iSpaLeg = idxAny(['SPA / LEG', 'SPA/LEG', 'SPA / LEG ', 'SPA / LEG']);
+  const iProgram = idxAny(['Program']);
+  const iPaDate = idxAny(['PA Date', 'PA date', 'PA']);
+  const iTenure = idxAny(['Tenure', 'TENURE']);
+
+  const rows = values
+    .slice(headerRowIndex + 1)
+    .filter(r => r.some(c => String(c ?? '').trim() !== ''))
+    .map((r): RosterEntry => {
+      const advisor = String((iAdvisor >= 0 ? r[iAdvisor] : r[0]) ?? '').trim();
+      const unit = String((iUnit >= 0 ? r[iUnit] : '') ?? '').trim();
+      const spaLeg = String((iSpaLeg >= 0 ? r[iSpaLeg] : '') ?? '').trim();
+      const program = String((iProgram >= 0 ? r[iProgram] : '') ?? '').trim();
+      const paDate = parseDate(iPaDate >= 0 ? r[iPaDate] : null);
+      const tenure = String((iTenure >= 0 ? r[iTenure] : '') ?? '').trim();
+
+      return {
+        advisor,
+        unit: unit || undefined,
+        spaLeg: spaLeg || undefined,
+        program: program || undefined,
+        paDate,
+        tenure: tenure || undefined,
+      };
+    })
+    .filter(r => Boolean(r.advisor));
+
+  // Deduplicate by normalized advisor name, preferring the first occurrence.
+  const dedup = new Map<string, RosterEntry>();
+  for (const r of rows) {
+    const key = normalizeName(r.advisor);
+    if (!dedup.has(key)) dedup.set(key, r);
+  }
+  return Array.from(dedup.values());
 };
 
 export const monthApprovedToDate = (monthApproved?: string): Date | null => {

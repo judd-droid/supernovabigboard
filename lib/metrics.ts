@@ -1,5 +1,15 @@
-import { MoneyKpis, SalesRow, AdvisorStatus, RangePreset } from './types';
+import { MoneyKpis, SalesRow, AdvisorStatus, RangePreset, RosterEntry } from './types';
 import { formatISODate, normalizeName, monthApprovedToDate } from './parse';
+
+export const buildRosterIndex = (entries: RosterEntry[]) => {
+  const idx = new Map<string, RosterEntry>();
+  for (const e of entries) {
+    const key = normalizeName(e.advisor);
+    if (!key) continue;
+    if (!idx.has(key)) idx.set(key, e);
+  }
+  return idx;
+};
 
 export const emptyKpis = (): MoneyKpis => ({
   anp: 0,
@@ -62,7 +72,7 @@ export const isApprovedInRange = (r: SalesRow, start: Date, end: Date): boolean 
 
 export const buildAdvisorStatuses = (
   rows: SalesRow[],
-  roster: string[],
+  rosterEntries: RosterEntry[],
   start: Date,
   end: Date,
   unitFilter: string | null
@@ -72,13 +82,23 @@ export const buildAdvisorStatuses = (
   pending: AdvisorStatus[];
   nonProducing: AdvisorStatus[];
 } => {
-  const rosterUnique = Array.from(new Map(roster.map(a => [normalizeName(a), a])).values());
+  const rosterIndex = buildRosterIndex(rosterEntries);
+  const rosterUnique = Array.from(new Map(rosterEntries.map(e => [normalizeName(e.advisor), e.advisor])).values());
 
   // Initialize map for all roster advisors.
   const map = new Map<string, AdvisorStatus>();
   for (const name of rosterUnique) {
+    const key = normalizeName(name);
+    const unit = rosterIndex.get(key)?.unit;
+
+    if (unitFilter && unitFilter !== 'All') {
+      const u = (unit || 'Unassigned').trim() || 'Unassigned';
+      if (u !== unitFilter) continue;
+    }
+
     map.set(normalizeName(name), {
       advisor: name,
+      unit,
       approved: emptyKpis(),
       submitted: emptyKpis(),
       paid: emptyKpis(),
@@ -91,15 +111,17 @@ export const buildAdvisorStatuses = (
     if (!advisor) continue;
     const key = normalizeName(advisor);
 
-    // Apply unit filter at row-level (fallback to roster list for non-producing later)
+    // Apply unit filter at row-level using roster mapping.
     if (unitFilter && unitFilter !== 'All') {
-      if ((r.unitManager || '').trim() !== unitFilter) continue;
+      const u = (rosterIndex.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
+      if (u !== unitFilter) continue;
     }
 
     if (!map.has(key)) {
+      const unit = rosterIndex.get(key)?.unit;
       map.set(key, {
         advisor,
-        unitManager: r.unitManager,
+        unit,
         approved: emptyKpis(),
         submitted: emptyKpis(),
         paid: emptyKpis(),
@@ -108,7 +130,7 @@ export const buildAdvisorStatuses = (
     }
 
     const st = map.get(key)!;
-    st.unitManager = st.unitManager || r.unitManager;
+    if (!st.unit) st.unit = rosterIndex.get(key)?.unit;
 
     if (isApprovedInRange(r, start, end)) addRowToKpis(st.approved, r);
     if (inRange(r.dateSubmitted, start, end)) addRowToKpis(st.submitted, r);
@@ -124,23 +146,7 @@ export const buildAdvisorStatuses = (
     }
   }
 
-  // If unit filter is applied, remove roster advisors that definitely belong to other units is impossible
-  // because roster doesn't have unit mapping yet. We'll keep roster-based non-producers under unit filter
-  // only if they have some row with that unit in the dataset (else we cannot reliably assign). We'll handle
-  // this by only including roster advisors with any rows after unit filtering OR those who appear as advisors
-  // under the unit manager elsewhere.
-
   let advisors = Array.from(map.values());
-
-  if (unitFilter && unitFilter !== 'All') {
-    const advisorsSeenInUnit = new Set(
-      rows
-        .filter(r => (r.unitManager || '').trim() === unitFilter)
-        .map(r => normalizeName(r.advisor || ''))
-        .filter(Boolean)
-    );
-    advisors = advisors.filter(a => advisorsSeenInUnit.has(normalizeName(a.advisor)));
-  }
 
   const producing: AdvisorStatus[] = [];
   const pending: AdvisorStatus[] = [];
@@ -205,7 +211,7 @@ export const buildLeaderboards = (statuses: AdvisorStatus[]) => {
   const unitMapFYP = new Map<string, number>();
 
   for (const s of statuses) {
-    const u = (s.unitManager || 'Unassigned').trim() || 'Unassigned';
+    const u = (s.unit || 'Unassigned').trim() || 'Unassigned';
     unitMap.set(u, (unitMap.get(u) ?? 0) + s.approved.fyc);
     unitMapFYP.set(u, (unitMapFYP.get(u) ?? 0) + s.approved.fyp);
   }
@@ -223,11 +229,23 @@ export const buildLeaderboards = (statuses: AdvisorStatus[]) => {
   return { advisorsByFYC, advisorsByFYP, unitsByFYC, unitsByFYP };
 };
 
-export const buildApprovedTrendsByDay = (rows: SalesRow[], start: Date, end: Date, unit: string | null, advisor: string | null) => {
+export const buildApprovedTrendsByDay = (
+  rows: SalesRow[],
+  start: Date,
+  end: Date,
+  unit: string | null,
+  advisor: string | null,
+  rosterIndex: Map<string, RosterEntry>
+) => {
   const map = new Map<string, { fyc: number; fyp: number; cases: number }>();
 
+  const getUnit = (advisorName: string) => {
+    const key = normalizeName(advisorName);
+    return (rosterIndex.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
+  };
+
   for (const r of rows) {
-    if (unit && unit !== 'All' && (r.unitManager || '').trim() !== unit) continue;
+    if (unit && unit !== 'All' && getUnit((r.advisor || '').trim()) !== unit) continue;
     if (advisor && advisor !== 'All' && (r.advisor || '').trim() !== advisor) continue;
     if (!isApprovedInRange(r, start, end)) continue;
 
@@ -248,16 +266,28 @@ export const buildApprovedTrendsByDay = (rows: SalesRow[], start: Date, end: Dat
   return out;
 };
 
-export const buildAdvisorDetail = (rows: SalesRow[], advisor: string, start: Date, end: Date, unitFilter: string | null) => {
+export const buildAdvisorDetail = (
+  rows: SalesRow[],
+  advisor: string,
+  start: Date,
+  end: Date,
+  unitFilter: string | null,
+  rosterIndex: Map<string, RosterEntry>
+) => {
   const approved = emptyKpis();
   const submitted = emptyKpis();
   const paid = emptyKpis();
 
   const productMap = new Map<string, { fyc: number; cases: number }>();
 
+  const getUnit = (advisorName: string) => {
+    const key = normalizeName(advisorName);
+    return (rosterIndex.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
+  };
+
   for (const r of rows) {
     if ((r.advisor || '').trim() !== advisor) continue;
-    if (unitFilter && unitFilter !== 'All' && (r.unitManager || '').trim() !== unitFilter) continue;
+    if (unitFilter && unitFilter !== 'All' && getUnit((r.advisor || '').trim()) !== unitFilter) continue;
 
     if (isApprovedInRange(r, start, end)) {
       addRowToKpis(approved, r);
@@ -276,7 +306,7 @@ export const buildAdvisorDetail = (rows: SalesRow[], advisor: string, start: Dat
     .sort((a, b) => b.fyc - a.fyc)
     .slice(0, 10);
 
-  const approvedByDay = buildApprovedTrendsByDay(rows, start, end, unitFilter, advisor);
+  const approvedByDay = buildApprovedTrendsByDay(rows, start, end, unitFilter, advisor, rosterIndex);
 
   return { advisor, approved, submitted, paid, productMix, approvedByDay };
 };

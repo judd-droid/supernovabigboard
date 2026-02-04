@@ -1,9 +1,20 @@
 export type RangePreset = 'MTD' | 'QTD' | 'YTD' | 'CUSTOM';
 
+export type RosterEntry = {
+  advisor: string;
+  unit?: string;
+  spaLeg?: string;
+  program?: string;
+  paDate?: Date | null;
+  tenure?: string;
+};
+
 export type SalesRow = {
   monthApproved?: string;
   policyNumber?: string;
   advisor?: string;
+  // Legacy column: will be removed from the sheet soon.
+  // We keep it optional for backward compatibility but the dashboard no longer uses it.
   unitManager?: string;
   policyOwner?: string;
   product?: string;
@@ -33,7 +44,7 @@ export type MoneyKpis = {
 
 export type AdvisorStatus = {
   advisor: string;
-  unitManager?: string;
+  unit?: string;
   approved: MoneyKpis;
   submitted: MoneyKpis;
   paid: MoneyKpis;

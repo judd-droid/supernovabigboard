@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSheetValues } from '@/lib/sheets';
-import { parseRoster, parseSalesRows } from '@/lib/parse';
+import { parseRosterEntries, parseSalesRows, normalizeName } from '@/lib/parse';
 import {
   buildAdvisorDetail,
   buildAdvisorStatuses,
@@ -8,6 +8,7 @@ import {
   buildLeaderboards,
   getPresetRange,
   aggregateTeam,
+  buildRosterIndex,
 } from '@/lib/metrics';
 import type { ApiResponse, RangePreset } from '@/lib/types';
 
@@ -62,23 +63,31 @@ export async function GET(req: Request) {
     const [newBusinessValues, rosterValues] = await Promise.all([
       // Use a wider range so adding future columns won't break parsing.
       getSheetValues(newBusinessSheet, 'A:AZ'),
-      getSheetValues(rosterSheet, 'A:A'),
+      // Read extra columns (Unit, SPA/LEG, Program, PA Date, Tenure, etc.).
+      getSheetValues(rosterSheet, 'A:Z'),
     ]);
 
     const rows = parseSalesRows(newBusinessValues);
-    const roster = parseRoster(rosterValues);
+    const rosterEntries = parseRosterEntries(rosterValues);
+    const rosterIndex = buildRosterIndex(rosterEntries);
 
     const units = Array.from(
-      new Set(rows.map(r => (r.unitManager || '').trim()).filter(Boolean))
+      new Set(rosterEntries.map(r => (r.unit || '').trim()).filter(Boolean))
     ).sort((a, b) => a.localeCompare(b));
 
-    const advisors = Array.from(new Set(roster.filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    // Advisors dropdown should include all roster advisors, plus any advisors that exist in New Business
+    // (historical cases). This prevents data from "disappearing" if someone is no longer on the roster.
+    const rosterNames = rosterEntries.map(r => r.advisor).filter(Boolean);
+    const rowNames = rows.map(r => (r.advisor || '').trim()).filter(Boolean);
+    const advisors = Array.from(new Map(
+      [...rosterNames, ...rowNames].map(a => [normalizeName(a), a])
+    ).values()).sort((a, b) => a.localeCompare(b));
 
-    const statuses = buildAdvisorStatuses(rows, roster, range.start, range.end, unit);
+    const statuses = buildAdvisorStatuses(rows, rosterEntries, range.start, range.end, unit);
     const team = aggregateTeam(statuses.advisors);
     const leaderboards = buildLeaderboards(statuses.advisors);
     const trends = {
-      approvedByDay: buildApprovedTrendsByDay(rows, range.start, range.end, unit, null),
+      approvedByDay: buildApprovedTrendsByDay(rows, range.start, range.end, unit, null, rosterIndex),
     };
 
     const resp: ApiResponse = {
@@ -105,7 +114,7 @@ export async function GET(req: Request) {
     };
 
     if (advisor !== 'All') {
-      resp.advisorDetail = buildAdvisorDetail(rows, advisor, range.start, range.end, unit);
+      resp.advisorDetail = buildAdvisorDetail(rows, advisor, range.start, range.end, unit, rosterIndex);
     }
 
     return NextResponse.json(resp);
