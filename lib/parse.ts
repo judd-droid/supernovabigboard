@@ -130,7 +130,7 @@ export const parseRosterEntries = (values: string[][]): RosterEntry[] => {
     .toLowerCase();
 
   // Detect header row (first few rows) so we can handle title rows or formatting.
-  const expected = ['advisors', 'advisor', 'unit', 'spa / leg', 'spa/leg', 'program', 'pa date', 'tenure'];
+  const expected = ['advisors', 'advisor', 'unit', 'spa / leg', 'spa/leg', 'program', 'pa date', 'tenure', 'months cmp 2025', 'months cmp'];
   let headerRowIndex = 0;
   let bestScore = -1;
   const scanLimit = Math.min(values.length, 10);
@@ -168,6 +168,7 @@ export const parseRosterEntries = (values: string[][]): RosterEntry[] => {
   const iProgram = idxAny(['Program']);
   const iPaDate = idxAny(['PA Date', 'PA date', 'PA']);
   const iTenure = idxAny(['Tenure', 'TENURE']);
+  const iMonthsCmp2025 = idxAny(['Months CMP 2025', 'Months CMP2025', 'CMP 2025', 'Months CMP']);
 
   const rows = values
     .slice(headerRowIndex + 1)
@@ -179,6 +180,7 @@ export const parseRosterEntries = (values: string[][]): RosterEntry[] => {
       const program = String((iProgram >= 0 ? r[iProgram] : '') ?? '').trim();
       const paDate = parseDate(iPaDate >= 0 ? r[iPaDate] : null);
       const tenure = String((iTenure >= 0 ? r[iTenure] : '') ?? '').trim();
+      const monthsCmp2025 = currencyToNumber(iMonthsCmp2025 >= 0 ? r[iMonthsCmp2025] : 0);
 
       return {
         advisor,
@@ -187,6 +189,7 @@ export const parseRosterEntries = (values: string[][]): RosterEntry[] => {
         program: program || undefined,
         paDate,
         tenure: tenure || undefined,
+        monthsCmp2025: monthsCmp2025 || undefined,
       };
     })
     .filter(r => Boolean(r.advisor));
@@ -202,17 +205,38 @@ export const parseRosterEntries = (values: string[][]): RosterEntry[] => {
 
 export const monthApprovedToDate = (monthApproved?: string): Date | null => {
   if (!monthApproved) return null;
-  // Ex: "January 2026"
-  const parts = monthApproved.trim().split(/\s+/);
+  const raw = String(monthApproved).trim();
+  if (!raw) return null;
+
+  // Common numeric formats: YYYY-MM, YYYY/MM, YYYY-MM-DD
+  const m1 = raw.match(/^(\d{4})[\/-](\d{1,2})(?:[\/-](\d{1,2}))?$/);
+  if (m1) {
+    const y = Number(m1[1]);
+    const mo = Number(m1[2]);
+    if (Number.isFinite(y) && Number.isFinite(mo) && mo >= 1 && mo <= 12) {
+      return new Date(Date.UTC(y, mo - 1, 1));
+    }
+  }
+
+  // Text formats: "January 2026", "Jan 2026"
+  const parts = raw.split(/\s+/);
   if (parts.length < 2) return null;
-  const monthName = parts[0].toLowerCase();
+  const monthToken = parts[0].toLowerCase();
   const year = Number(parts[1]);
-  const months = [
+  if (!Number.isFinite(year)) return null;
+
+  const monthNames = [
     'january','february','march','april','may','june','july','august','september','october','november','december'
   ];
-  const m = months.indexOf(monthName);
-  if (m === -1 || !Number.isFinite(year)) return null;
-  return new Date(Date.UTC(year, m, 1));
+  const monthAbbr = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+
+  let mi = monthNames.indexOf(monthToken);
+  if (mi === -1) {
+    const ab = monthToken.slice(0, 3);
+    mi = monthAbbr.indexOf(ab);
+  }
+  if (mi === -1) return null;
+  return new Date(Date.UTC(year, mi, 1));
 };
 
 export const formatISODate = (d: Date): string => {

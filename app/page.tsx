@@ -14,6 +14,8 @@ import { AdvisorStatusPanel } from '@/components/AdvisorStatusPanel';
 import { TrendChart } from '@/components/TrendChart';
 import { Leaderboard } from '@/components/Leaderboard';
 import { ProductMix } from '@/components/ProductMix';
+import { SpartanMonitoringRow } from '@/components/SpartanMonitoringRow';
+import { SpecialLookoutsRow } from '@/components/SpecialLookoutsRow';
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -170,6 +172,21 @@ export default function Page() {
               <KpiCard title="Non-producing advisors" value={formatNumber(producingCounts.nonProducing)} sub="No Submitted / Paid / Approved" />
             </div>
           </Section>
+
+          {tab === 'team' && data.spartanMonitoring ? (
+            <Section title="Spartan monitoring">
+              <SpartanMonitoringRow data={data.spartanMonitoring} />
+            </Section>
+          ) : null}
+
+          {tab === 'team' && data.specialLookouts ? (
+            <Section title="Special lookouts">
+              <SpecialLookoutsRow
+                productSellers={data.specialLookouts.productSellers}
+                consistentMonthlyProducers={data.specialLookouts.consistentMonthlyProducers}
+              />
+            </Section>
+          ) : null}
 
           <Section title="Advisor production overview">
             <AdvisorStatusPanel

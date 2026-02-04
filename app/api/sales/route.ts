@@ -9,6 +9,9 @@ import {
   getPresetRange,
   aggregateTeam,
   buildRosterIndex,
+  buildSpartanMonitoring,
+  buildProductSellers,
+  buildConsistentMonthlyProducers,
 } from '@/lib/metrics';
 import type { ApiResponse, RangePreset } from '@/lib/types';
 
@@ -90,6 +93,12 @@ export async function GET(req: Request) {
       approvedByDay: buildApprovedTrendsByDay(rows, range.start, range.end, unit, null, rosterIndex),
     };
 
+    const spartanMonitoring = buildSpartanMonitoring(statuses.advisors, rosterEntries, unit);
+    const specialLookouts = {
+      productSellers: buildProductSellers(rows, range.start, range.end, unit, rosterIndex),
+      consistentMonthlyProducers: buildConsistentMonthlyProducers(rows, rosterEntries, unit, manilaNow),
+    };
+
     const resp: ApiResponse = {
       generatedAt: new Date().toISOString(),
       filters: {
@@ -111,6 +120,8 @@ export async function GET(req: Request) {
       },
       leaderboards,
       trends,
+      spartanMonitoring,
+      specialLookouts,
     };
 
     if (advisor !== 'All') {

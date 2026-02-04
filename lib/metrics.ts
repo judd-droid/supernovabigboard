@@ -266,6 +266,201 @@ export const buildApprovedTrendsByDay = (
   return out;
 };
 
+const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
+
+export const buildSpartanMonitoring = (
+  statuses: AdvisorStatus[],
+  rosterEntries: RosterEntry[],
+  unitFilter: string | null
+) => {
+  const rosterIndex = buildRosterIndex(rosterEntries);
+  const isSpartan = (advisorName: string) => {
+    const key = normalizeName(advisorName);
+    const entry = rosterIndex.get(key);
+    return norm(entry?.spaLeg) === 'spartan';
+  };
+  const matchesUnit = (advisorName: string) => {
+    if (!unitFilter || unitFilter === 'All') return true;
+    const key = normalizeName(advisorName);
+    const u = (rosterIndex.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
+    return u === unitFilter;
+  };
+
+  const spartanRoster = rosterEntries
+    .filter(r => norm(r.spaLeg) === 'spartan')
+    .filter(r => matchesUnit(r.advisor));
+
+  const totalSpartans = spartanRoster.length;
+  const producingSpartans = statuses
+    .filter(s => matchesUnit(s.advisor))
+    .filter(s => isSpartan(s.advisor))
+    .filter(s => (s.approved.caseCount > 0 || s.approved.fyc > 0 || s.approved.fyp > 0))
+    .length;
+
+  const activityRatio = totalSpartans > 0 ? producingSpartans / totalSpartans : 0;
+
+  const spartanStatuses = statuses
+    .filter(s => matchesUnit(s.advisor))
+    .filter(s => isSpartan(s.advisor));
+
+  const animals = spartanStatuses
+    .filter(s => s.approved.caseCount >= 2)
+    .sort((a, b) => b.approved.caseCount - a.approved.caseCount)
+    .map(s => ({
+      advisor: s.advisor,
+      cases: s.approved.caseCount,
+      isAnimal: s.approved.caseCount >= 6,
+    }));
+
+  const totals = spartanStatuses.reduce(
+    (acc, s) => {
+      acc.approvedFyc += s.approved.fyc;
+      acc.approvedCases += s.approved.caseCount;
+      return acc;
+    },
+    { approvedFyc: 0, approvedCases: 0 }
+  );
+  const avgFycPerCase = totals.approvedCases > 0 ? totals.approvedFyc / totals.approvedCases : 0;
+
+  return {
+    totalSpartans,
+    producingSpartans,
+    activityRatio,
+    animals,
+    totals: { ...totals, avgFycPerCase },
+  };
+};
+
+export const buildProductSellers = (
+  rows: SalesRow[],
+  start: Date,
+  end: Date,
+  unitFilter: string | null,
+  rosterIndex: Map<string, RosterEntry>
+) => {
+  const getUnit = (advisorName: string) => {
+    const key = normalizeName(advisorName);
+    return (rosterIndex.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
+  };
+
+  const out = {
+    aPlusSignature: [] as Array<{ advisor: string; product: string; fyc: number; policyNumber?: string; monthApproved?: string }>,
+    ascend: [] as Array<{ advisor: string; product: string; fyc: number; policyNumber?: string; monthApproved?: string }>,
+    futureSafeUsd5Pay: [] as Array<{ advisor: string; product: string; fyc: number; policyNumber?: string; monthApproved?: string }>,
+  };
+
+  const isAPlus = (p: string) => /a\+\s*signature/i.test(p);
+  const isAscend = (p: string) => /\bascend\b/i.test(p);
+  const isFsUsd5 = (p: string) => {
+    const collapsed = p.replace(/\s+/g, '').toLowerCase();
+    return collapsed.includes('futuresafe') && collapsed.includes('usd') && /\b5\b/.test(p) && /pay/i.test(p);
+  };
+
+  for (const r of rows) {
+    const advisor = (r.advisor || '').trim();
+    if (!advisor) continue;
+    if (unitFilter && unitFilter !== 'All' && getUnit(advisor) !== unitFilter) continue;
+    if (!isApprovedInRange(r, start, end)) continue;
+    const product = String(r.product ?? '').trim();
+    if (!product) continue;
+
+    const item = {
+      advisor,
+      product,
+      fyc: r.fyc ?? 0,
+      policyNumber: r.policyNumber,
+      monthApproved: r.monthApproved,
+    };
+
+    if (isAPlus(product)) out.aPlusSignature.push(item);
+    if (isAscend(product)) out.ascend.push(item);
+    if (isFsUsd5(product)) out.futureSafeUsd5Pay.push(item);
+  }
+
+  const sortByFyc = (a: any, b: any) => (b.fyc ?? 0) - (a.fyc ?? 0);
+  out.aPlusSignature.sort(sortByFyc);
+  out.ascend.sort(sortByFyc);
+  out.futureSafeUsd5Pay.sort(sortByFyc);
+
+  return out;
+};
+
+const monthKey = (d: Date) => {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+};
+
+const addMonths = (d: Date, delta: number) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + delta, 1));
+
+export const buildConsistentMonthlyProducers = (
+  rows: SalesRow[],
+  rosterEntries: RosterEntry[],
+  unitFilter: string | null,
+  nowManila: Date
+) => {
+  const rosterIndex = buildRosterIndex(rosterEntries);
+
+  const getUnit = (advisorName: string) => {
+    const key = normalizeName(advisorName);
+    return (rosterIndex.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
+  };
+
+  const producedMonths = new Map<string, Set<string>>();
+  for (const r of rows) {
+    const advisor = (r.advisor || '').trim();
+    if (!advisor) continue;
+
+    // Approved month key from Month Approved (preferred), else Date Approved
+    const md = monthApprovedToDate((r.monthApproved ?? '').trim()) ?? (r.dateApproved ? new Date(Date.UTC(r.dateApproved.getUTCFullYear(), r.dateApproved.getUTCMonth(), 1)) : null);
+    if (!md) continue;
+
+    const k = normalizeName(advisor);
+    if (!producedMonths.has(k)) producedMonths.set(k, new Set());
+    producedMonths.get(k)!.add(monthKey(md));
+  }
+
+  const currentMonthStart = new Date(Date.UTC(nowManila.getFullYear(), nowManila.getMonth(), 1));
+  const asOfMonth = monthKey(currentMonthStart);
+
+  const candidates = rosterEntries
+    .filter(r => Boolean(r.advisor))
+    .filter(r => {
+      if (!unitFilter || unitFilter === 'All') return true;
+      const u = (r.unit || 'Unassigned').trim() || 'Unassigned';
+      return u === unitFilter;
+    });
+
+  const advisors: Array<{ advisor: string; streakMonths: number }> = [];
+
+  for (const r of candidates) {
+    const key = normalizeName(r.advisor);
+    const set = producedMonths.get(key) ?? new Set<string>();
+
+    let streak = 0;
+    let cursor = currentMonthStart;
+    while (set.has(monthKey(cursor)) && streak < 240) {
+      streak += 1;
+      cursor = addMonths(cursor, -1);
+    }
+
+    // If the streak reaches Jan 2026 and the prior month would be Dec 2025,
+    // extend using the roster's Months CMP 2025 (carry-over streak).
+    if (streak > 0 && monthKey(cursor) === '2025-12') {
+      const carry = Number(r.monthsCmp2025 ?? 0);
+      if (Number.isFinite(carry) && carry > 0) streak += carry;
+    }
+
+    if (streak >= 3) {
+      advisors.push({ advisor: r.advisor, streakMonths: streak });
+    }
+  }
+
+  advisors.sort((a, b) => b.streakMonths - a.streakMonths || a.advisor.localeCompare(b.advisor));
+
+  return { asOfMonth, advisors };
+};
+
 export const buildAdvisorDetail = (
   rows: SalesRow[],
   advisor: string,

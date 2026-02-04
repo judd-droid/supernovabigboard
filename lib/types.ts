@@ -7,6 +7,21 @@ export type RosterEntry = {
   program?: string;
   paDate?: Date | null;
   tenure?: string;
+  monthsCmp2025?: number;
+};
+
+export type SpartanAnimalsItem = {
+  advisor: string;
+  cases: number;
+  isAnimal: boolean;
+};
+
+export type ProductSaleItem = {
+  advisor: string;
+  product: string;
+  fyc: number;
+  policyNumber?: string;
+  monthApproved?: string;
 };
 
 export type SalesRow = {
@@ -85,6 +100,32 @@ export type ApiResponse = {
   };
   trends: {
     approvedByDay: Array<{ date: string; fyc: number; fyp: number; cases: number }>;
+  };
+
+  // Spartan monitoring panels (range-aware)
+  spartanMonitoring?: {
+    totalSpartans: number;
+    producingSpartans: number;
+    activityRatio: number; // producing/total
+    animals: SpartanAnimalsItem[]; // 2+ cases, desc
+    totals: {
+      approvedFyc: number;
+      approvedCases: number;
+      avgFycPerCase: number;
+    };
+  };
+
+  // Special lookouts
+  specialLookouts?: {
+    productSellers: {
+      aPlusSignature: ProductSaleItem[];
+      ascend: ProductSaleItem[];
+      futureSafeUsd5Pay: ProductSaleItem[];
+    };
+    consistentMonthlyProducers: {
+      asOfMonth: string; // YYYY-MM (Manila)
+      advisors: Array<{ advisor: string; streakMonths: number }>;
+    };
   };
   advisorDetail?: {
     advisor: string;
