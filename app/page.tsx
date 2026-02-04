@@ -182,6 +182,7 @@ export default function Page() {
               <SpecialLookoutsRow
                 productSellers={data.specialLookouts.productSellers}
                 consistentMonthlyProducers={data.specialLookouts.consistentMonthlyProducers}
+                salesRoundup={data.specialLookouts.salesRoundup ?? []}
               />
             </Section>
           ) : null}

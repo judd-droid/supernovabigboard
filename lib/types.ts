@@ -24,6 +24,14 @@ export type ProductSaleItem = {
   monthApproved?: string;
 };
 
+export type SalesRoundupItem = {
+  advisor: string;
+  product: string;
+  afyc: number;
+  policyNumber?: string;
+  monthApproved?: string;
+};
+
 export type SalesRow = {
   monthApproved?: string;
   policyNumber?: string;
@@ -128,6 +136,7 @@ export type ApiResponse = {
       watch2: Array<{ advisor: string; streakMonths: number }>;
       watch1: Array<{ advisor: string; streakMonths: number }>;
     };
+    salesRoundup?: SalesRoundupItem[];
   };
   advisorDetail?: {
     advisor: string;

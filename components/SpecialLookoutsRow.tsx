@@ -1,6 +1,6 @@
 import { Badge } from './Badge';
 import { formatNumber, formatPeso } from '@/lib/format';
-import type { ProductSaleItem } from '@/lib/types';
+import type { ProductSaleItem, SalesRoundupItem } from '@/lib/types';
 
 function sumFyc(items: ProductSaleItem[]) {
   return items.reduce((acc, r) => acc + (r.fyc ?? 0), 0);
@@ -44,6 +44,7 @@ function SaleList({
 export function SpecialLookoutsRow({
   productSellers,
   consistentMonthlyProducers,
+  salesRoundup,
 }: {
   productSellers: {
     aPlusSignature: ProductSaleItem[];
@@ -56,14 +57,15 @@ export function SpecialLookoutsRow({
     watch2: Array<{ advisor: string; streakMonths: number }>;
     watch1: Array<{ advisor: string; streakMonths: number }>;
   };
+  salesRoundup: SalesRoundupItem[];
 }) {
   const { threePlus, watch2, watch1 } = consistentMonthlyProducers;
   const asOfDisplay = (consistentMonthlyProducers.asOfMonth ?? '').replace('-', '/');
 
   const AnyList = ({ title, items, tone }: { title: string; items: Array<{ advisor: string; streakMonths: number }>; tone: 'green' | 'amber' | 'slate' }) => (
     <div className="mt-3">
-      {/* Sticky section header so labels don't visually compete with advisor names */}
-      <div className="sticky top-0 z-10 -mx-3 px-3 py-2 bg-white/90 backdrop-blur border-b border-slate-200">
+      {/* Section header */}
+      <div className="-mx-3 px-3 py-2 bg-slate-50 border-y border-slate-200">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{title}</span>
           <span className="text-[11px] font-semibold text-slate-500">{formatNumber(items.length)}</span>
@@ -116,16 +118,42 @@ export function SpecialLookoutsRow({
           <AnyList title="1 Month CMP" items={watch1} tone="slate" />
         </div>
         <div className="p-3 border-t border-slate-200 text-xs text-slate-500">
-          Rule: consecutive months with ≥1 approved case. Window ends on the previous month. Carries over from "Months CMP 2025" when streak reaches Jan 2026.
+          Rule: consecutive months with ≥1 approved case. Computed through the month shown. Carries over from "Months CMP 2025" when streak reaches Jan 2026.
         </div>
       </div>
 
       <div className="rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div className="flex items-center justify-between p-3 border-b border-slate-200">
-          <Badge tone="slate">Reserved</Badge>
-          <div className="text-xs text-slate-400">—</div>
+          <div className="flex items-center gap-2">
+            <Badge tone="slate">Sales Round-up</Badge>
+            <div className="text-xs text-slate-500">Approved only (in range)</div>
+          </div>
+          <div className="text-xs text-slate-400">AFYC</div>
         </div>
-        <div className="p-4 text-sm text-slate-500">Placeholder for the next lookout panel.</div>
+        <div className="max-h-[320px] overflow-auto p-3">
+          {salesRoundup.length === 0 ? (
+            <div className="text-sm text-slate-500">No approved sales in range.</div>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {salesRoundup.map((s, idx) => {
+                const show = (s.afyc ?? 0) >= 1000;
+                const key = `${s.policyNumber ?? ''}-${idx}`;
+                return (
+                  <li key={key} className="flex items-center justify-between gap-3 py-2">
+                    <div className="min-w-0 text-sm text-slate-800 truncate">
+                      <span className="font-medium">{s.advisor}</span>
+                      <span className="text-slate-400"> — </span>
+                      <span className="text-slate-600 font-normal">{s.product}</span>
+                    </div>
+                    <div className="text-sm tabular-nums text-slate-700 whitespace-nowrap">
+                      {show ? formatPeso(s.afyc) : ''}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );

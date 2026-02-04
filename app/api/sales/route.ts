@@ -11,6 +11,7 @@ import {
   buildRosterIndex,
   buildSpartanMonitoring,
   buildProductSellers,
+  buildSalesRoundup,
   buildConsistentMonthlyProducers,
 } from '@/lib/metrics';
 import type { ApiResponse, RangePreset } from '@/lib/types';
@@ -95,8 +96,8 @@ export async function GET(req: Request) {
 
     const spartanMonitoring = buildSpartanMonitoring(statuses.advisors, rosterEntries, unit);
 
-    // Consistent Monthly Producers (CMP) should be computed "as of the previous month"
-    // (i.e., the most recently completed calendar month), regardless of the selected range.
+    // Consistent Monthly Producers (CMP) is computed through the most recently completed
+    // calendar month (this month is shown in the panel title), regardless of the selected range.
     const cmpEnd = new Date(Date.UTC(
       manilaNow.getFullYear(),
       manilaNow.getMonth(),
@@ -106,6 +107,7 @@ export async function GET(req: Request) {
     const specialLookouts = {
       productSellers: buildProductSellers(rows, range.start, range.end, unit, rosterIndex),
       consistentMonthlyProducers: buildConsistentMonthlyProducers(rows, rosterEntries, unit, cmpEnd),
+      salesRoundup: buildSalesRoundup(rows, range.start, range.end, unit, advisor, rosterIndex),
     };
 
     const resp: ApiResponse = {

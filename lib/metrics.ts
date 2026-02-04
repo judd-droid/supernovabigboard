@@ -391,6 +391,44 @@ export const buildProductSellers = (
   return out;
 };
 
+export const buildSalesRoundup = (
+  rows: SalesRow[],
+  start: Date,
+  end: Date,
+  unitFilter: string | null,
+  advisorFilter: string | null,
+  rosterIndex: Map<string, RosterEntry>
+) => {
+  const getUnit = (advisorName: string) => {
+    const key = normalizeName(advisorName);
+    return (rosterIndex.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
+  };
+
+  const out: Array<{ advisor: string; product: string; afyc: number; policyNumber?: string; monthApproved?: string }> = [];
+
+  for (const r of rows) {
+    const advisor = (r.advisor || '').trim();
+    if (!advisor) continue;
+    if (advisorFilter && advisorFilter !== 'All' && advisor !== advisorFilter) continue;
+    if (unitFilter && unitFilter !== 'All' && getUnit(advisor) !== unitFilter) continue;
+    if (!isApprovedInRange(r, start, end)) continue;
+
+    const product = String(r.product ?? '').trim();
+    if (!product) continue;
+
+    out.push({
+      advisor,
+      product,
+      afyc: r.afyc ?? 0,
+      policyNumber: r.policyNumber,
+      monthApproved: r.monthApproved,
+    });
+  }
+
+  out.sort((a, b) => (b.afyc ?? 0) - (a.afyc ?? 0) || a.advisor.localeCompare(b.advisor));
+  return out;
+};
+
 const monthKey = (d: Date) => {
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, '0');
