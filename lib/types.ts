@@ -32,6 +32,24 @@ export type SalesRoundupItem = {
   monthApproved?: string;
 };
 
+export type PpbTrackerRow = {
+  advisor: string;
+  fyc: number;
+  cases: number;
+  m1Cases: number;
+  m2Cases: number;
+  m3Cases: number;
+  // Placeholders for future bonus logic
+  projectedBonus?: number | null;
+  balanceToNextTier?: number | null;
+};
+
+export type PpbTracker = {
+  quarter: string; // e.g. "Q1 2026"
+  months: [string, string, string]; // e.g. ["Jan","Feb","Mar"]
+  rows: PpbTrackerRow[];
+};
+
 export type SalesRow = {
   monthApproved?: string;
   policyNumber?: string;
@@ -138,6 +156,9 @@ export type ApiResponse = {
     };
     salesRoundup?: SalesRoundupItem[];
   };
+
+  // PPB tracker (quarter snapshot based on selected range end)
+  ppbTracker?: PpbTracker;
   advisorDetail?: {
     advisor: string;
     approved: MoneyKpis;

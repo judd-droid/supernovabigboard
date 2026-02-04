@@ -13,6 +13,7 @@ import {
   buildProductSellers,
   buildSalesRoundup,
   buildConsistentMonthlyProducers,
+  buildPpbTracker,
 } from '@/lib/metrics';
 import type { ApiResponse, RangePreset } from '@/lib/types';
 
@@ -110,6 +111,10 @@ export async function GET(req: Request) {
       salesRoundup: buildSalesRoundup(rows, range.start, range.end, unit, advisor, rosterIndex),
     };
 
+    // PPB Tracker snapshot is based on the calendar quarter where the selected range end falls.
+    // It aggregates quarter-to-date (through the selected range end).
+    const ppbTracker = buildPpbTracker(rows, rosterEntries, range.end, unit, rosterIndex);
+
     const resp: ApiResponse = {
       generatedAt: new Date().toISOString(),
       filters: {
@@ -133,6 +138,7 @@ export async function GET(req: Request) {
       trends,
       spartanMonitoring,
       specialLookouts,
+      ppbTracker,
     };
 
     if (advisor !== 'All') {

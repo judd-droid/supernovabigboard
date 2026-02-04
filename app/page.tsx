@@ -16,6 +16,7 @@ import { Leaderboard } from '@/components/Leaderboard';
 import { ProductMix } from '@/components/ProductMix';
 import { SpartanMonitoringRow } from '@/components/SpartanMonitoringRow';
 import { SpecialLookoutsRow } from '@/components/SpecialLookoutsRow';
+import { PpbTrackerRow } from '@/components/PpbTrackerRow';
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -184,6 +185,12 @@ export default function Page() {
                 consistentMonthlyProducers={data.specialLookouts.consistentMonthlyProducers}
                 salesRoundup={data.specialLookouts.salesRoundup ?? []}
               />
+            </Section>
+          ) : null}
+
+          {tab === 'team' && data.ppbTracker ? (
+            <Section title="PPB tracker">
+              <PpbTrackerRow data={data.ppbTracker} />
             </Section>
           ) : null}
 

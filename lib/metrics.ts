@@ -429,6 +429,124 @@ export const buildSalesRoundup = (
   return out;
 };
 
+const MONTH3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+
+const safeCaseCount = (r: SalesRow) => {
+  const c = Number(r.caseCount ?? 0);
+  if (!Number.isFinite(c) || c <= 0) return 1;
+  return c;
+};
+
+const isGuardianProduct = (p: string) => /guardian/i.test(p);
+
+const getApprovedDateForPpb = (r: SalesRow): Date | null => {
+  if (r.dateApproved) return r.dateApproved;
+  if (r.monthApproved) {
+    const md = monthApprovedToDate(r.monthApproved);
+    return md ?? null;
+  }
+  return null;
+};
+
+export const buildPpbTracker = (
+  rows: SalesRow[],
+  rosterEntries: RosterEntry[],
+  rangeEnd: Date,
+  unitFilter: string | null,
+  rosterIndex: Map<string, RosterEntry>
+) => {
+  const endY = rangeEnd.getUTCFullYear();
+  const endM = rangeEnd.getUTCMonth();
+  const q = Math.floor(endM / 3); // 0..3
+  const qm = q * 3; // quarter start month
+  const quarterStart = new Date(Date.UTC(endY, qm, 1));
+
+  const months: [string, string, string] = [
+    MONTH3[qm] ?? 'M1',
+    MONTH3[qm + 1] ?? 'M2',
+    MONTH3[qm + 2] ?? 'M3',
+  ];
+
+  const quarter = `Q${q + 1} ${endY}`;
+
+  const getUnit = (advisorName: string) => {
+    const key = normalizeName(advisorName);
+    return (rosterIndex.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
+  };
+
+  // Build advisor set from roster for the selected unit (but include non-roster advisors
+  // if they appear in the sales sheet and match the unit via rosterIndex).
+  const advisorMap = new Map<string, {
+    advisor: string;
+    fyc: number;
+    cases: number;
+    m: [number, number, number];
+  }>();
+
+  for (const r of rows) {
+    const advisor = (r.advisor || '').trim();
+    if (!advisor) continue;
+
+    if (unitFilter && unitFilter !== 'All' && getUnit(advisor) !== unitFilter) continue;
+
+    const ad = getApprovedDateForPpb(r);
+    if (!ad) continue;
+
+    // Quarter snapshot: include approved rows within the quarter, up to the selected range end.
+    if (ad.getTime() < quarterStart.getTime()) continue;
+    if (ad.getTime() > rangeEnd.getTime()) continue;
+
+    const adMonth = ad.getUTCMonth();
+    if (adMonth < qm || adMonth > qm + 2) continue;
+
+    const idx = adMonth - qm; // 0..2
+
+    const key = normalizeName(advisor);
+    const cur = advisorMap.get(key) ?? {
+      advisor,
+      fyc: 0,
+      cases: 0,
+      m: [0, 0, 0] as [number, number, number],
+    };
+
+    // FYC: count all approved sales (including Guardian)
+    cur.fyc += r.fyc ?? 0;
+
+    // Cases: exclude Guardian variants from case counts, but allow their FYC
+    const product = String(r.product ?? '').trim();
+    const isGuardian = isGuardianProduct(product);
+    const caseAdd = isGuardian ? 0 : safeCaseCount(r);
+
+    cur.cases += caseAdd;
+    cur.m[idx] += caseAdd;
+
+    advisorMap.set(key, cur);
+  }
+
+  // Also ensure roster advisors are represented if they have Guardian-only sales (cases=0 but fyc>0)
+  // or any quarter activity; already covered by fyc accumulation above.
+
+  const rowsOut = Array.from(advisorMap.values())
+    .filter(r => (r.fyc ?? 0) > 0 || (r.cases ?? 0) > 0)
+    .map(r => ({
+      advisor: r.advisor,
+      fyc: r.fyc,
+      cases: r.cases,
+      m1Cases: r.m[0],
+      m2Cases: r.m[1],
+      m3Cases: r.m[2],
+      projectedBonus: null,
+      balanceToNextTier: null,
+    }))
+    .sort((a, b) => (b.fyc ?? 0) - (a.fyc ?? 0) || a.advisor.localeCompare(b.advisor));
+
+  return {
+    quarter,
+    months,
+    rows: rowsOut,
+  };
+};
+
 const monthKey = (d: Date) => {
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, '0');
