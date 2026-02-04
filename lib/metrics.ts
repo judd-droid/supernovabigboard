@@ -523,15 +523,23 @@ export const buildPpbTracker = (
 
   const minFycFor = (firstTwoYears: boolean) => (firstTwoYears ? 20_000 : 30_000);
 
-  const nextFycTierBalance = (fyc: number, firstTwoYears: boolean): number | null => {
+  const nextPpbTierInfo = (fyc: number, firstTwoYears: boolean): { balance: number | null; nextRate: number | null } => {
     const tiers = firstTwoYears
       ? [20_000, 30_000, 50_000, 80_000, 120_000, 200_000, 350_000]
       : [30_000, 50_000, 80_000, 120_000, 200_000, 350_000];
 
     for (const t of tiers) {
-      if (fyc < t) return t - fyc;
+      if (fyc < t) return { balance: t - fyc, nextRate: fycRateFor(t) };
     }
-    return null; // already at top tier
+    return { balance: null, nextRate: null }; // already at top tier
+  };
+
+  const nextCcbTierInfo = (cases: number): { balance: number | null; nextRate: number | null } => {
+    if (cases < 3) return { balance: 3 - cases, nextRate: 0.05 };
+    if (cases < 5) return { balance: 5 - cases, nextRate: 0.10 };
+    if (cases < 7) return { balance: 7 - cases, nextRate: 0.15 };
+    if (cases < 9) return { balance: 9 - cases, nextRate: 0.20 };
+    return { balance: null, nextRate: null };
   };
 
   const caseBonusRateFor = (cases: number) => {
@@ -645,12 +653,14 @@ export const buildPpbTracker = (
 
       const activeMonthsRequired = (paIdx === 2) ? 1 : 2;
       const qualifiesCase = qualifiesFyc && r.cases >= 3 && activeMonths >= activeMonthsRequired;
-      const caseRate = qualifiesCase ? caseBonusRateFor(r.cases) : 0;
+      const ccbRate = qualifiesCase ? caseBonusRateFor(r.cases) : null;
 
       const persistencyMultiplier = 1.0; // default 82.5% => 100%
-      const projectedBonus = qualifiesFyc ? (fycRate + caseRate) * persistencyMultiplier * r.fyc : 0;
+      const totalBonusRate = qualifiesFyc ? (fycRate + (ccbRate ?? 0)) : 0;
+      const projectedBonus = qualifiesFyc ? totalBonusRate * persistencyMultiplier * r.fyc : null;
 
-      const nextTier = nextFycTierBalance(r.fyc, firstTwo);
+      const nextPpb = nextPpbTierInfo(r.fyc, firstTwo);
+      const nextCcb = nextCcbTierInfo(r.cases);
 
       return {
         advisor: r.advisor,
@@ -659,8 +669,14 @@ export const buildPpbTracker = (
         m1Cases: r.m[0],
         m2Cases: r.m[1],
         m3Cases: r.m[2],
+        ppbRate: fycRate,
+        ccbRate,
+        totalBonusRate,
         projectedBonus,
-        balanceToNextTier: nextTier,
+        fycToNextBonusTier: nextPpb.balance,
+        nextPpbRate: nextPpb.nextRate,
+        casesToNextCcbTier: nextCcb.balance,
+        nextCcbRate: nextCcb.nextRate,
       };
     })
     .sort((a, b) => (b.fyc ?? 0) - (a.fyc ?? 0) || a.advisor.localeCompare(b.advisor));

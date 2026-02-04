@@ -39,9 +39,18 @@ export type PpbTrackerRow = {
   m1Cases: number;
   m2Cases: number;
   m3Cases: number;
-  // Placeholders for future bonus logic
-  projectedBonus?: number | null;
-  balanceToNextTier?: number | null;
+  // Rates
+  ppbRate: number; // FYC Bonus Rate
+  ccbRate: number | null; // Case Count Bonus Rate (null if not applicable)
+  totalBonusRate: number; // ppbRate + (ccbRate ?? 0)
+
+  projectedBonus: number | null;
+
+  // Next tier guidance
+  fycToNextBonusTier: number | null;
+  nextPpbRate: number | null;
+  casesToNextCcbTier: number | null;
+  nextCcbRate: number | null;
 };
 
 export type PpbTracker = {
