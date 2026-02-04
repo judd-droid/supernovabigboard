@@ -62,14 +62,17 @@ export function SpecialLookoutsRow({
 
   const AnyList = ({ title, items, tone }: { title: string; items: Array<{ advisor: string; streakMonths: number }>; tone: 'green' | 'amber' | 'slate' }) => (
     <div className="mt-3">
-      <div className="flex items-center justify-between">
-        <div className="text-xs font-semibold text-slate-700">{title}</div>
-        <div className="text-xs text-slate-500">{formatNumber(items.length)}</div>
+      {/* Sticky section header so labels don't visually compete with advisor names */}
+      <div className="sticky top-0 z-10 -mx-3 px-3 py-2 bg-white/90 backdrop-blur border-b border-slate-200">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{title}</span>
+          <span className="text-[11px] font-semibold text-slate-500">{formatNumber(items.length)}</span>
+        </div>
       </div>
       {items.length === 0 ? (
-        <div className="mt-1 text-xs text-slate-400">None</div>
+        <div className="mt-2 text-xs text-slate-400">None</div>
       ) : (
-        <ul className="mt-1 divide-y divide-slate-100">
+        <ul className="divide-y divide-slate-100">
           {items.map((c) => (
             <li key={`${title}-${c.advisor}`} className="flex items-center justify-between py-2">
               <div className="min-w-0">
