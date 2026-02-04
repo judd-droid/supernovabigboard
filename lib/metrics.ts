@@ -500,6 +500,13 @@ export const buildPpbTracker = (
 
   const isFirstTwoYears = (advisorName: string) => {
     const entry = getRoster(advisorName);
+
+    // Prefer explicit roster tenure when available. This avoids misclassifying
+    // advisors when PA Date is missing or formatted unexpectedly.
+    const tenure = String(entry?.tenure ?? '').trim().toLowerCase();
+    if (tenure === 'tenured') return false;
+    if (tenure === 'rookie') return true;
+
     const pa = entry?.paDate ?? null;
     if (!pa) return true; // default leniently
 

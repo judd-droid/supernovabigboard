@@ -19,9 +19,12 @@ const parseDate = (v: unknown): Date | null => {
   // We'll parse it defensively.
   const parts = s.split(/[\/\-]/).map(p => p.trim());
   if (parts.length === 3 && parts[2].length >= 2) {
-    const m = Number(parts[0]);
-    const d = Number(parts[1]);
-    const y = Number(parts[2].length === 2 ? `20${parts[2]}` : parts[2]);
+    // Support both m/d/yyyy and yyyy/m/d formats.
+    const isYmd = parts[0].length === 4;
+    const m = Number(isYmd ? parts[1] : parts[0]);
+    const d = Number(isYmd ? parts[2] : parts[1]);
+    const yRaw = isYmd ? parts[0] : parts[2];
+    const y = Number(yRaw.length === 2 ? `20${yRaw}` : yRaw);
     if ([m, d, y].every(Number.isFinite) && y > 1900) {
       const dt = new Date(Date.UTC(y, m - 1, d));
       return Number.isNaN(dt.getTime()) ? null : dt;
