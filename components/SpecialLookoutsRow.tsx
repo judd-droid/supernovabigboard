@@ -52,10 +52,36 @@ export function SpecialLookoutsRow({
   };
   consistentMonthlyProducers: {
     asOfMonth: string;
-    advisors: Array<{ advisor: string; streakMonths: number }>;
+    threePlus: Array<{ advisor: string; streakMonths: number }>;
+    watch2: Array<{ advisor: string; streakMonths: number }>;
+    watch1: Array<{ advisor: string; streakMonths: number }>;
   };
 }) {
-  const cmp = consistentMonthlyProducers.advisors;
+  const { threePlus, watch2, watch1 } = consistentMonthlyProducers;
+
+  const AnyList = ({ title, items, tone }: { title: string; items: Array<{ advisor: string; streakMonths: number }>; tone: 'green' | 'amber' | 'slate' }) => (
+    <div className="mt-3">
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-semibold text-slate-700">{title}</div>
+        <div className="text-xs text-slate-500">{formatNumber(items.length)}</div>
+      </div>
+      {items.length === 0 ? (
+        <div className="mt-1 text-xs text-slate-400">None</div>
+      ) : (
+        <ul className="mt-1 divide-y divide-slate-100">
+          {items.map((c) => (
+            <li key={`${title}-${c.advisor}`} className="flex items-center justify-between py-2">
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-slate-800 truncate">{c.advisor}</div>
+                <div className="text-xs text-slate-500">{formatNumber(c.streakMonths)} mo</div>
+              </div>
+              <Badge tone={tone}>{formatNumber(c.streakMonths)} mo</Badge>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 
   return (
     <div className="grid gap-4 md:grid-cols-3">
@@ -82,22 +108,13 @@ export function SpecialLookoutsRow({
           </div>
           <div className="text-xs text-slate-400">Streak</div>
         </div>
-        <div className="max-h-[320px] overflow-auto">
-          {cmp.length === 0 ? (
-            <div className="p-4 text-sm text-slate-500">None</div>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {cmp.map((c) => (
-                <li key={c.advisor} className="flex items-center justify-between p-3">
-                  <div className="text-sm font-medium text-slate-800">{c.advisor}</div>
-                  <div className="text-sm tabular-nums text-slate-700">{formatNumber(c.streakMonths)} mo</div>
-                </li>
-              ))}
-            </ul>
-          )}
+        <div className="max-h-[320px] overflow-auto p-3">
+          <AnyList title="3+ Months CMP" items={threePlus} tone="green" />
+          <AnyList title="Watchlist: 2 Months" items={watch2} tone="amber" />
+          <AnyList title="Watchlist: 1 Month" items={watch1} tone="slate" />
         </div>
         <div className="p-3 border-t border-slate-200 text-xs text-slate-500">
-          Rule: 3+ consecutive months with ≥1 approved case. Carries over from "Months CMP 2025" when streak reaches Jan 2026.
+          Rule: 3+ consecutive months with ≥1 approved case. Window ends on the selected range end month. Carries over from "Months CMP 2025" when streak reaches Jan 2026.
         </div>
       </div>
 

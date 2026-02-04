@@ -1,4 +1,4 @@
-export type RangePreset = 'MTD' | 'QTD' | 'YTD' | 'CUSTOM';
+export type RangePreset = 'MTD' | 'QTD' | 'YTD' | 'PREV_MONTH' | 'CUSTOM';
 
 export type RosterEntry = {
   advisor: string;
@@ -123,8 +123,10 @@ export type ApiResponse = {
       futureSafeUsd5Pay: ProductSaleItem[];
     };
     consistentMonthlyProducers: {
-      asOfMonth: string; // YYYY-MM (Manila)
-      advisors: Array<{ advisor: string; streakMonths: number }>;
+      asOfMonth: string; // YYYY-MM ending at the selected range end
+      threePlus: Array<{ advisor: string; streakMonths: number }>;
+      watch2: Array<{ advisor: string; streakMonths: number }>;
+      watch1: Array<{ advisor: string; streakMonths: number }>;
     };
   };
   advisorDetail?: {

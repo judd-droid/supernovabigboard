@@ -27,6 +27,7 @@ const presetLabel: Record<RangePreset, string> = {
   MTD: 'Month-to-date',
   QTD: 'Quarter-to-date',
   YTD: 'Year-to-date',
+  PREV_MONTH: 'Previous month',
   CUSTOM: 'Custom',
 };
 
@@ -100,7 +101,7 @@ export default function Page() {
               <Select
                 value={preset}
                 onChange={(v) => setPreset(v as RangePreset)}
-                options={['MTD', 'QTD', 'YTD', 'CUSTOM']}
+                options={['MTD', 'QTD', 'YTD', 'PREV_MONTH', 'CUSTOM']}
               />
             </Field>
 
@@ -164,15 +165,6 @@ export default function Page() {
             </div>
           </Section>
 
-          <Section title="Pipeline signals">
-            <div className="grid gap-4 md:grid-cols-4">
-              <KpiCard title="Submitted FYP" value={formatPeso(data.team.submitted.fyp)} icon={<Clock3 size={18} />} />
-              <KpiCard title="Paid FYP" value={formatPeso(data.team.paid.fyp)} />
-              <KpiCard title="Advisors with pending cases" value={formatNumber(producingCounts.pending)} sub="(Name) means already producing" />
-              <KpiCard title="Non-producing advisors" value={formatNumber(producingCounts.nonProducing)} sub="No Submitted / Paid / Approved" />
-            </div>
-          </Section>
-
           {tab === 'team' && data.spartanMonitoring ? (
             <Section title="Spartan monitoring">
               <SpartanMonitoringRow data={data.spartanMonitoring} />
@@ -187,6 +179,15 @@ export default function Page() {
               />
             </Section>
           ) : null}
+
+          <Section title="Pipeline signals">
+            <div className="grid gap-4 md:grid-cols-4">
+              <KpiCard title="Submitted FYP" value={formatPeso(data.team.submitted.fyp)} icon={<Clock3 size={18} />} />
+              <KpiCard title="Paid FYP" value={formatPeso(data.team.paid.fyp)} />
+              <KpiCard title="Advisors with pending cases" value={formatNumber(producingCounts.pending)} sub="(Name) means already producing" />
+              <KpiCard title="Non-producing advisors" value={formatNumber(producingCounts.nonProducing)} sub="No Submitted / Paid / Approved" />
+            </div>
+          </Section>
 
           <Section title="Advisor production overview">
             <AdvisorStatusPanel

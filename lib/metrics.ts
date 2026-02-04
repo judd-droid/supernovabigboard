@@ -47,6 +47,12 @@ export const getPresetRange = (preset: RangePreset, now: Date): { start: Date; e
     const qm = q * 3;
     return { start: new Date(Date.UTC(y, qm, 1)), end };
   }
+  if (preset === 'PREV_MONTH') {
+    // Previous calendar month (Manila-aligned date is already baked into `now` upstream)
+    // Start: first day of previous month
+    // End: last day of previous month
+    return { start: new Date(Date.UTC(y, m - 1, 1)), end: new Date(Date.UTC(y, m, 0)) };
+  }
   // YTD
   return { start: new Date(Date.UTC(y, 0, 1)), end };
 };
@@ -397,7 +403,7 @@ export const buildConsistentMonthlyProducers = (
   rows: SalesRow[],
   rosterEntries: RosterEntry[],
   unitFilter: string | null,
-  nowManila: Date
+  rangeEnd: Date
 ) => {
   const rosterIndex = buildRosterIndex(rosterEntries);
 
@@ -420,8 +426,10 @@ export const buildConsistentMonthlyProducers = (
     producedMonths.get(k)!.add(monthKey(md));
   }
 
-  const currentMonthStart = new Date(Date.UTC(nowManila.getFullYear(), nowManila.getMonth(), 1));
-  const asOfMonth = monthKey(currentMonthStart);
+  // CMP window ends on the last date of the selected range.
+  // We compute the streak ending in the month that contains `rangeEnd`.
+  const endMonthStart = new Date(Date.UTC(rangeEnd.getUTCFullYear(), rangeEnd.getUTCMonth(), 1));
+  const asOfMonth = monthKey(endMonthStart);
 
   const candidates = rosterEntries
     .filter(r => Boolean(r.advisor))
@@ -431,14 +439,16 @@ export const buildConsistentMonthlyProducers = (
       return u === unitFilter;
     });
 
-  const advisors: Array<{ advisor: string; streakMonths: number }> = [];
+  const threePlus: Array<{ advisor: string; streakMonths: number }> = [];
+  const watch2: Array<{ advisor: string; streakMonths: number }> = [];
+  const watch1: Array<{ advisor: string; streakMonths: number }> = [];
 
   for (const r of candidates) {
     const key = normalizeName(r.advisor);
     const set = producedMonths.get(key) ?? new Set<string>();
 
     let streak = 0;
-    let cursor = currentMonthStart;
+    let cursor = endMonthStart;
     while (set.has(monthKey(cursor)) && streak < 240) {
       streak += 1;
       cursor = addMonths(cursor, -1);
@@ -451,14 +461,19 @@ export const buildConsistentMonthlyProducers = (
       if (Number.isFinite(carry) && carry > 0) streak += carry;
     }
 
-    if (streak >= 3) {
-      advisors.push({ advisor: r.advisor, streakMonths: streak });
-    }
+    if (streak >= 3) threePlus.push({ advisor: r.advisor, streakMonths: streak });
+    else if (streak === 2) watch2.push({ advisor: r.advisor, streakMonths: streak });
+    else if (streak === 1) watch1.push({ advisor: r.advisor, streakMonths: streak });
   }
 
-  advisors.sort((a, b) => b.streakMonths - a.streakMonths || a.advisor.localeCompare(b.advisor));
+  const sortFn = (a: { advisor: string; streakMonths: number }, b: { advisor: string; streakMonths: number }) =>
+    b.streakMonths - a.streakMonths || a.advisor.localeCompare(b.advisor);
 
-  return { asOfMonth, advisors };
+  threePlus.sort(sortFn);
+  watch2.sort(sortFn);
+  watch1.sort(sortFn);
+
+  return { asOfMonth, threePlus, watch2, watch1 };
 };
 
 export const buildAdvisorDetail = (

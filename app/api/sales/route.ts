@@ -96,7 +96,8 @@ export async function GET(req: Request) {
     const spartanMonitoring = buildSpartanMonitoring(statuses.advisors, rosterEntries, unit);
     const specialLookouts = {
       productSellers: buildProductSellers(rows, range.start, range.end, unit, rosterIndex),
-      consistentMonthlyProducers: buildConsistentMonthlyProducers(rows, rosterEntries, unit, manilaNow),
+      // CMP window ends on the selected range end.
+      consistentMonthlyProducers: buildConsistentMonthlyProducers(rows, rosterEntries, unit, range.end),
     };
 
     const resp: ApiResponse = {
