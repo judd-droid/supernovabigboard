@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSheetValues } from '@/lib/sheets';
-import { parseRosterEntries, parseSalesRows, normalizeName } from '@/lib/parse';
+import { parseRosterEntries, parseSalesRows, parseDprRows, normalizeName } from '@/lib/parse';
 import {
   buildAdvisorDetail,
   buildAdvisorStatuses,
@@ -64,16 +64,20 @@ export async function GET(req: Request) {
 
     const newBusinessSheet = getSheetName('NEW_BUSINESS_SHEET_NAME', 'New Business');
     const rosterSheet = getSheetName('ROSTER_SHEET_NAME', 'Roster');
+    const dprSheet = getSheetName('DPR_LOG_SHEET_NAME', 'DPR Log');
 
-    const [newBusinessValues, rosterValues] = await Promise.all([
+    const [newBusinessValues, rosterValues, dprValues] = await Promise.all([
       // Use a wider range so adding future columns won't break parsing.
       getSheetValues(newBusinessSheet, 'A:AZ'),
       // Read extra columns (Unit, SPA/LEG, Program, PA Date, Tenure, etc.).
       getSheetValues(rosterSheet, 'A:Z'),
+      // DPR monthly totals (FYC/ANP/FYP + Persistency)
+      getSheetValues(dprSheet, 'A:Z'),
     ]);
 
     const rows = parseSalesRows(newBusinessValues);
     const rosterEntries = parseRosterEntries(rosterValues);
+    const dprRows = parseDprRows(dprValues);
     const rosterIndex = buildRosterIndex(rosterEntries);
 
     const units = Array.from(
@@ -113,7 +117,7 @@ export async function GET(req: Request) {
 
     // PPB Tracker snapshot is based on the calendar quarter where the selected range end falls.
     // It aggregates quarter-to-date (through the selected range end).
-    const ppbTracker = buildPpbTracker(rows, rosterEntries, range.end, unit, rosterIndex);
+    const ppbTracker = buildPpbTracker(rows, rosterEntries, range.end, unit, rosterIndex, dprRows);
 
     const resp: ApiResponse = {
       generatedAt: new Date().toISOString(),

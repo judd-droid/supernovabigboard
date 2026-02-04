@@ -59,6 +59,16 @@ export type PpbTracker = {
   rows: PpbTrackerRow[];
 };
 
+// DPR Log (monthly performance totals)
+export type DprRow = {
+  monthKey: string; // YYYY-MM
+  advisor: string;
+  fyc: number;
+  anp: number;
+  fyp: number;
+  pers: number | null;
+};
+
 export type SalesRow = {
   monthApproved?: string;
   policyNumber?: string;

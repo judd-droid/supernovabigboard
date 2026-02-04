@@ -1,4 +1,4 @@
-import { RosterEntry, SalesRow } from './types';
+import { DprRow, RosterEntry, SalesRow } from './types';
 
 const currencyToNumber = (v: unknown): number => {
   if (v === null || v === undefined) return 0;
@@ -204,6 +204,76 @@ export const parseRosterEntries = (values: string[][]): RosterEntry[] => {
     if (!dedup.has(key)) dedup.set(key, r);
   }
   return Array.from(dedup.values());
+};
+
+export const parseDprRows = (values: string[][]): DprRow[] => {
+  if (!values || values.length < 2) return [];
+
+  const norm = (s: unknown) => String(s ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+  const expected = ['month', 'advisor', 'fyc', 'anp', 'fyp', 'pers'];
+  let headerRowIndex = 0;
+  let bestScore = -1;
+  const scanLimit = Math.min(values.length, 10);
+  for (let i = 0; i < scanLimit; i++) {
+    const row = values[i] ?? [];
+    const headersHere = row.map(norm);
+    const score = expected.reduce((acc, h) => acc + (headersHere.includes(h) ? 1 : 0), 0);
+    if (score > bestScore) {
+      bestScore = score;
+      headerRowIndex = i;
+    }
+  }
+
+  // If we can't find headers, assume old format and bail out (we need Month + Advisor at minimum)
+  if (bestScore < 2) return [];
+
+  const headers = (values[headerRowIndex] ?? []).map((h) => String(h ?? '').replace(/\s+/g, ' ').trim());
+  const headersNorm = headers.map(norm);
+  const idx = (h: string) => headersNorm.findIndex(x => x === norm(h));
+
+  const iMonth = idx('Month');
+  const iAdvisor = idx('Advisor');
+  const iFyc = idx('FYC');
+  const iAnp = idx('ANP');
+  const iFyp = idx('FYP');
+  const iPers = idx('PERS');
+
+  const optNumber = (v: unknown): number | null => {
+    const s = String(v ?? '').trim();
+    if (!s) return null;
+    return currencyToNumber(s);
+  };
+
+  const toMonthKey = (monthVal: unknown): string | null => {
+    const d = monthApprovedToDate(String(monthVal ?? '').trim());
+    if (!d) return null;
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  };
+
+  return values
+    .slice(headerRowIndex + 1)
+    .filter(r => r.some(c => String(c ?? '').trim() !== ''))
+    .map((r): DprRow | null => {
+      const monthKey = toMonthKey(iMonth >= 0 ? r[iMonth] : null);
+      const advisor = String((iAdvisor >= 0 ? r[iAdvisor] : '') ?? '').trim();
+      if (!monthKey || !advisor) return null;
+
+      return {
+        monthKey,
+        advisor,
+        fyc: currencyToNumber(iFyc >= 0 ? r[iFyc] : 0),
+        anp: currencyToNumber(iAnp >= 0 ? r[iAnp] : 0),
+        fyp: currencyToNumber(iFyp >= 0 ? r[iFyp] : 0),
+        pers: optNumber(iPers >= 0 ? r[iPers] : null),
+      };
+    })
+    .filter((r): r is DprRow => Boolean(r));
 };
 
 export const monthApprovedToDate = (monthApproved?: string): Date | null => {

@@ -1,4 +1,4 @@
-import { MoneyKpis, SalesRow, AdvisorStatus, RangePreset, RosterEntry } from './types';
+import { MoneyKpis, SalesRow, AdvisorStatus, RangePreset, RosterEntry, DprRow } from './types';
 import { formatISODate, normalizeName, monthApprovedToDate } from './parse';
 
 export const buildRosterIndex = (entries: RosterEntry[]) => {
@@ -453,7 +453,8 @@ export const buildPpbTracker = (
   rosterEntries: RosterEntry[],
   rangeEnd: Date,
   unitFilter: string | null,
-  rosterIndex: Map<string, RosterEntry>
+  rosterIndex: Map<string, RosterEntry>,
+  dprRows: DprRow[] = []
 ) => {
   const endY = rangeEnd.getUTCFullYear();
   const endM = rangeEnd.getUTCMonth();
@@ -531,13 +532,23 @@ export const buildPpbTracker = (
   const minFycFor = (firstTwoYears: boolean) => (firstTwoYears ? 20_000 : 30_000);
 
   const nextPpbTierInfo = (fyc: number, firstTwoYears: boolean): { balance: number | null; nextRate: number | null } => {
+    // "Next tier" should mean the next threshold that INCREASES the PPB rate.
+    // Example: for rookies, 20k and 30k are both 10%, so after hitting 20k the
+    // next meaningful tier is 50k (15%). For tenured advisors, the minimum is
+    // 30k (10%), then 50k (15%), etc.
     const tiers = firstTwoYears
       ? [20_000, 30_000, 50_000, 80_000, 120_000, 200_000, 350_000]
       : [30_000, 50_000, 80_000, 120_000, 200_000, 350_000];
 
+    const minFyc = minFycFor(firstTwoYears);
+    const currentRate = fyc >= minFyc ? fycRateFor(fyc) : 0;
+
     for (const t of tiers) {
-      if (fyc < t) return { balance: t - fyc, nextRate: fycRateFor(t) };
+      if (fyc >= t) continue;
+      const tierRate = t >= minFyc ? fycRateFor(t) : 0;
+      if (tierRate > currentRate) return { balance: t - fyc, nextRate: tierRate };
     }
+
     return { balance: null, nextRate: null }; // already at top tier
   };
 
@@ -566,6 +577,33 @@ export const buildPpbTracker = (
     // Dedup tracking for case count bonus rules (not for FYC)
     seenCase: Map<string, { idx: number; count: number }>;
   }>();
+
+  // DPR quarter-to-date FYC (includes renewals/other production beyond New Business).
+  // DPR is sometimes delayed; when both sources exist, we use the higher of
+  // (New Business approved FYC) vs (DPR QTD FYC) until DPR catches up.
+  const dprHas = new Set<string>();
+  const dprFycMap = new Map<string, number>();
+  const dprNameMap = new Map<string, string>();
+
+  const endQuarterMonthIdx = Math.min(2, Math.max(0, endM - qm));
+
+  for (const dr of dprRows ?? []) {
+    const advisor = String(dr.advisor ?? '').trim();
+    if (!advisor) continue;
+
+    if (unitFilter && unitFilter !== 'All' && getUnit(advisor) !== unitFilter) continue;
+
+    const idx = quarterMonthKeys.indexOf(String(dr.monthKey ?? '').trim());
+    if (idx === -1) continue;
+    if (idx > endQuarterMonthIdx) continue; // quarter-to-date only
+
+    const key = normalizeName(advisor);
+    dprHas.add(key);
+    if (!dprNameMap.has(key)) dprNameMap.set(key, advisor);
+
+    const cur = dprFycMap.get(key) ?? 0;
+    dprFycMap.set(key, cur + (dr.fyc ?? 0));
+  }
 
   const normKey = (s: unknown) => String(s ?? '').trim().toLowerCase();
 
@@ -596,7 +634,7 @@ export const buildPpbTracker = (
       seenCase: new Map<string, { idx: number; count: number }>(),
     };
 
-    // FYC: count all approved sales (including Guardian)
+    // FYC: keep New Business totals as a fallback. DPR (if present) will override later.
     cur.fyc += r.fyc ?? 0;
 
     // Cases: exclude Guardian variants from case counts (for now)
@@ -633,15 +671,34 @@ export const buildPpbTracker = (
     advisorMap.set(key, cur);
   }
 
-  const rowsOut = Array.from(advisorMap.values())
-    .filter(r => (r.fyc ?? 0) > 0 || (r.cases ?? 0) > 0)
-    .map(r => {
+  // Ensure advisors that appear only in DPR still show up in the PPB table.
+  for (const key of dprHas) {
+    if (advisorMap.has(key)) continue;
+    const name = dprNameMap.get(key) || rosterIndex.get(key)?.advisor || key;
+    advisorMap.set(key, {
+      advisor: name,
+      fyc: 0,
+      cases: 0,
+      m: [0, 0, 0],
+      seenCase: new Map<string, { idx: number; count: number }>(),
+    });
+  }
+
+  const rowsOut = Array.from(advisorMap.entries())
+    .map(([key, r]) => {
+      // Quarter-to-date FYC source:
+      // DPR is sometimes delayed (not real-time). If DPR exists but is lower than
+      // what New Business already reflects, use the higher number until DPR catches up.
+      const nbFyc = r.fyc ?? 0;
+      const dprFyc = dprFycMap.get(key) ?? 0;
+      const fyc = dprHas.has(key) ? Math.max(dprFyc, nbFyc) : nbFyc;
+
       const firstTwo = isFirstTwoYears(r.advisor);
       const minFyc = minFycFor(firstTwo);
 
       // FYC bonus eligibility (we default persistency to 82.5% -> multiplier 100%)
-      const qualifiesFyc = r.fyc >= minFyc;
-      const fycRate = qualifiesFyc ? fycRateFor(r.fyc) : 0;
+      const qualifiesFyc = fyc >= minFyc;
+      const fycRate = qualifiesFyc ? fycRateFor(fyc) : 0;
 
       // Case count bonus eligibility (simplified; ignores net adjustments)
       // - Must qualify for FYC bonus first
@@ -664,14 +721,14 @@ export const buildPpbTracker = (
 
       const persistencyMultiplier = 1.0; // default 82.5% => 100%
       const totalBonusRate = qualifiesFyc ? (fycRate + (ccbRate ?? 0)) : 0;
-      const projectedBonus = qualifiesFyc ? totalBonusRate * persistencyMultiplier * r.fyc : null;
+      const projectedBonus = qualifiesFyc ? totalBonusRate * persistencyMultiplier * fyc : null;
 
-      const nextPpb = nextPpbTierInfo(r.fyc, firstTwo);
+      const nextPpb = nextPpbTierInfo(fyc, firstTwo);
       const nextCcb = nextCcbTierInfo(r.cases);
 
       return {
         advisor: r.advisor,
-        fyc: r.fyc,
+        fyc,
         cases: r.cases,
         m1Cases: r.m[0],
         m2Cases: r.m[1],
@@ -686,6 +743,7 @@ export const buildPpbTracker = (
         nextCcbRate: nextCcb.nextRate,
       };
     })
+    .filter(r => (r.fyc ?? 0) > 0 || (r.cases ?? 0) > 0)
     .sort((a, b) => (b.fyc ?? 0) - (a.fyc ?? 0) || a.advisor.localeCompare(b.advisor));
 
   return {
