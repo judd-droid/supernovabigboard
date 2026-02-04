@@ -74,7 +74,6 @@ export function SpecialLookoutsRow({
             <li key={`${title}-${c.advisor}`} className="flex items-center justify-between py-2">
               <div className="min-w-0">
                 <div className="text-sm font-medium text-slate-800 truncate">{c.advisor}</div>
-                <div className="text-xs text-slate-500">{formatNumber(c.streakMonths)} mo</div>
               </div>
               <Badge tone={tone}>{formatNumber(c.streakMonths)} mo</Badge>
             </li>
