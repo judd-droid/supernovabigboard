@@ -58,6 +58,7 @@ export function SpecialLookoutsRow({
   };
 }) {
   const { threePlus, watch2, watch1 } = consistentMonthlyProducers;
+  const asOfDisplay = (consistentMonthlyProducers.asOfMonth ?? '').replace('-', '/');
 
   const AnyList = ({ title, items, tone }: { title: string; items: Array<{ advisor: string; streakMonths: number }>; tone: 'green' | 'amber' | 'slate' }) => (
     <div className="mt-3">
@@ -103,15 +104,14 @@ export function SpecialLookoutsRow({
       <div className="rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div className="flex items-center justify-between p-3 border-b border-slate-200">
           <div className="flex items-center gap-2">
-            <Badge tone="green">Consistent Monthly Producers</Badge>
-            <div className="text-xs text-slate-500">As of Previous Month ({consistentMonthlyProducers.asOfMonth})</div>
+            <Badge tone="green">CMP as of {asOfDisplay}</Badge>
           </div>
           <div className="text-xs text-slate-400">Streak</div>
         </div>
         <div className="max-h-[320px] overflow-auto p-3">
-          <AnyList title="3+ Months CMP as of Previous Month" items={threePlus} tone="green" />
-          <AnyList title="2 Months CMP as of Previous Month" items={watch2} tone="amber" />
-          <AnyList title="1 Month CMP as of Previous Month" items={watch1} tone="slate" />
+          <AnyList title="3+ Months CMP" items={threePlus} tone="green" />
+          <AnyList title="2 Months CMP" items={watch2} tone="amber" />
+          <AnyList title="1 Month CMP" items={watch1} tone="slate" />
         </div>
         <div className="p-3 border-t border-slate-200 text-xs text-slate-500">
           Rule: consecutive months with ≥1 approved case. Window ends on the previous month. Carries over from "Months CMP 2025" when streak reaches Jan 2026.

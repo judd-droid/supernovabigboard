@@ -24,9 +24,9 @@ const fetcher = async (url: string) => {
 };
 
 const presetLabel: Record<RangePreset, string> = {
-  MTD: 'Month-to-date',
-  QTD: 'Quarter-to-date',
-  YTD: 'Year-to-date',
+  MTD: 'MTD',
+  QTD: 'QTD',
+  YTD: 'YTD',
   PREV_MONTH: 'Previous Month',
   CUSTOM: 'Custom',
 };
@@ -102,9 +102,9 @@ export default function Page() {
                 value={preset}
                 onChange={(v) => setPreset(v as RangePreset)}
                 options={[
-                  { value: 'MTD', label: 'Month-to-date' },
-                  { value: 'QTD', label: 'Quarter-to-date' },
-                  { value: 'YTD', label: 'Year-to-date' },
+                  { value: 'MTD', label: 'MTD' },
+                  { value: 'QTD', label: 'QTD' },
+                  { value: 'YTD', label: 'YTD' },
                   { value: 'PREV_MONTH', label: 'Previous Month' },
                   { value: 'CUSTOM', label: 'Custom' },
                 ]}
