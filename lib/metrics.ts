@@ -460,6 +460,11 @@ export const buildPpbTracker = (
   const q = Math.floor(endM / 3); // 0..3
   const qm = q * 3; // quarter start month
   const quarterStart = new Date(Date.UTC(endY, qm, 1));
+  const quarterEnd = new Date(Date.UTC(endY, qm + 3, 0));
+
+  // Treat rangeEnd as inclusive end-of-day for safety.
+  const rangeEndEod = new Date(rangeEnd.getTime());
+  rangeEndEod.setUTCHours(23, 59, 59, 999);
 
   const months: [string, string, string] = [
     MONTH3[qm] ?? 'M1',
@@ -474,14 +479,80 @@ export const buildPpbTracker = (
     return (rosterIndex.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
   };
 
-  // Build advisor set from roster for the selected unit (but include non-roster advisors
-  // if they appear in the sales sheet and match the unit via rosterIndex).
+  const getRoster = (advisorName: string) => rosterIndex.get(normalizeName(advisorName));
+
+  const monthKeyLocal = (d: Date) => {
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  };
+
+  const paMonthKey = (pa: Date | null | undefined) => {
+    if (!pa) return null;
+    return monthKeyLocal(new Date(Date.UTC(pa.getUTCFullYear(), pa.getUTCMonth(), 1)));
+  };
+
+  const quarterMonthKeys: [string, string, string] = [
+    monthKeyLocal(new Date(Date.UTC(endY, qm, 1))),
+    monthKeyLocal(new Date(Date.UTC(endY, qm + 1, 1))),
+    monthKeyLocal(new Date(Date.UTC(endY, qm + 2, 1))),
+  ];
+
+  const isFirstTwoYears = (advisorName: string) => {
+    const entry = getRoster(advisorName);
+    const pa = entry?.paDate ?? null;
+    if (!pa) return true; // default leniently
+
+    // Tenure is based on the first month of the quarter.
+    const qStartYM = endY * 12 + qm;
+    const paYM = pa.getUTCFullYear() * 12 + pa.getUTCMonth();
+    const months = qStartYM - paYM;
+    return months < 24;
+  };
+
+  const fycRateFor = (fyc: number) => {
+    if (fyc >= 350_000) return 0.40;
+    if (fyc >= 200_000) return 0.35;
+    if (fyc >= 120_000) return 0.30;
+    if (fyc >= 80_000) return 0.20;
+    if (fyc >= 50_000) return 0.15;
+    if (fyc >= 30_000) return 0.10;
+    if (fyc >= 20_000) return 0.10;
+    return 0;
+  };
+
+  const minFycFor = (firstTwoYears: boolean) => (firstTwoYears ? 20_000 : 30_000);
+
+  const nextFycTierBalance = (fyc: number, firstTwoYears: boolean): number | null => {
+    const tiers = firstTwoYears
+      ? [20_000, 30_000, 50_000, 80_000, 120_000, 200_000, 350_000]
+      : [30_000, 50_000, 80_000, 120_000, 200_000, 350_000];
+
+    for (const t of tiers) {
+      if (fyc < t) return t - fyc;
+    }
+    return null; // already at top tier
+  };
+
+  const caseBonusRateFor = (cases: number) => {
+    if (cases >= 9) return 0.20;
+    if (cases >= 7) return 0.15;
+    if (cases >= 5) return 0.10;
+    if (cases >= 3) return 0.05;
+    return 0;
+  };
+
+  // Track per-advisor aggregates.
   const advisorMap = new Map<string, {
     advisor: string;
     fyc: number;
     cases: number;
     m: [number, number, number];
+    // Dedup tracking for case count bonus rules (not for FYC)
+    seenCase: Map<string, { idx: number; count: number }>;
   }>();
+
+  const normKey = (s: unknown) => String(s ?? '').trim().toLowerCase();
 
   for (const r of rows) {
     const advisor = (r.advisor || '').trim();
@@ -492,9 +563,9 @@ export const buildPpbTracker = (
     const ad = getApprovedDateForPpb(r);
     if (!ad) continue;
 
-    // Quarter snapshot: include approved rows within the quarter, up to the selected range end.
+    // Quarter-to-date snapshot (through selected range end)
     if (ad.getTime() < quarterStart.getTime()) continue;
-    if (ad.getTime() > rangeEnd.getTime()) continue;
+    if (ad.getTime() > rangeEndEod.getTime()) continue;
 
     const adMonth = ad.getUTCMonth();
     if (adMonth < qm || adMonth > qm + 2) continue;
@@ -507,37 +578,91 @@ export const buildPpbTracker = (
       fyc: 0,
       cases: 0,
       m: [0, 0, 0] as [number, number, number],
+      seenCase: new Map<string, { idx: number; count: number }>(),
     };
 
     // FYC: count all approved sales (including Guardian)
     cur.fyc += r.fyc ?? 0;
 
-    // Cases: exclude Guardian variants from case counts, but allow their FYC
+    // Cases: exclude Guardian variants from case counts (for now)
     const product = String(r.product ?? '').trim();
     const isGuardian = isGuardianProduct(product);
-    const caseAdd = isGuardian ? 0 : safeCaseCount(r);
 
-    cur.cases += caseAdd;
-    cur.m[idx] += caseAdd;
+    if (!isGuardian) {
+      // Deduplicate case credits within the quarter
+      const policyOwner = String(r.policyOwner ?? '').trim();
+      const mode = String(r.mode ?? '').trim();
+
+      const caseKey = [
+        normKey(advisor),
+        normKey(policyOwner),
+        normKey(product),
+        normKey(mode),
+      ].join('|');
+
+      const caseAdd = safeCaseCount(r);
+
+      const prev = cur.seenCase.get(caseKey);
+      if (!prev) {
+        cur.seenCase.set(caseKey, { idx, count: caseAdd });
+        cur.cases += caseAdd;
+        cur.m[idx] += caseAdd;
+      } else if (idx < prev.idx) {
+        // Move the case credit to the earlier month (first occurrence month rule)
+        cur.m[prev.idx] -= prev.count;
+        cur.m[idx] += prev.count;
+        cur.seenCase.set(caseKey, { idx, count: prev.count });
+      }
+    }
 
     advisorMap.set(key, cur);
   }
 
-  // Also ensure roster advisors are represented if they have Guardian-only sales (cases=0 but fyc>0)
-  // or any quarter activity; already covered by fyc accumulation above.
-
   const rowsOut = Array.from(advisorMap.values())
     .filter(r => (r.fyc ?? 0) > 0 || (r.cases ?? 0) > 0)
-    .map(r => ({
-      advisor: r.advisor,
-      fyc: r.fyc,
-      cases: r.cases,
-      m1Cases: r.m[0],
-      m2Cases: r.m[1],
-      m3Cases: r.m[2],
-      projectedBonus: null,
-      balanceToNextTier: null,
-    }))
+    .map(r => {
+      const firstTwo = isFirstTwoYears(r.advisor);
+      const minFyc = minFycFor(firstTwo);
+
+      // FYC bonus eligibility (we default persistency to 82.5% -> multiplier 100%)
+      const qualifiesFyc = r.fyc >= minFyc;
+      const fycRate = qualifiesFyc ? fycRateFor(r.fyc) : 0;
+
+      // Case count bonus eligibility (simplified; ignores net adjustments)
+      // - Must qualify for FYC bonus first
+      // - Must have >=3 cases (Guardian excluded)
+      // - Must be active in >=2 months within the quarter (Guardian excluded)
+      //   * If PA month falls in the 3rd month of the quarter, waive the 2-month rule.
+      const entry = getRoster(r.advisor);
+      const paKey = paMonthKey(entry?.paDate ?? null);
+      const paIdx = paKey ? quarterMonthKeys.indexOf(paKey) : -1;
+
+      const startIdx = paIdx >= 0 ? paIdx : 0;
+      const activeMonths = [0, 1, 2]
+        .filter(i => i >= startIdx)
+        .filter(i => (r.m[i] ?? 0) > 0)
+        .length;
+
+      const activeMonthsRequired = (paIdx === 2) ? 1 : 2;
+      const qualifiesCase = qualifiesFyc && r.cases >= 3 && activeMonths >= activeMonthsRequired;
+      const caseRate = qualifiesCase ? caseBonusRateFor(r.cases) : 0;
+
+      const persistencyMultiplier = 1.0; // default 82.5% => 100%
+      const projectedBonus = qualifiesFyc ? (fycRate + caseRate) * persistencyMultiplier * r.fyc : 0;
+
+      const nextTier = nextFycTierBalance(r.fyc, firstTwo);
+
+      return {
+        advisor: r.advisor,
+        fyc: r.fyc,
+        cases: r.cases,
+        m1Cases: r.m[0],
+        m2Cases: r.m[1],
+        m3Cases: r.m[2],
+        projectedBonus,
+        balanceToNextTier: nextTier,
+      };
+    })
     .sort((a, b) => (b.fyc ?? 0) - (a.fyc ?? 0) || a.advisor.localeCompare(b.advisor));
 
   return {

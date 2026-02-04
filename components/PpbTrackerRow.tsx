@@ -30,7 +30,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                   <th className="text-right font-semibold py-2 pr-3">{m2}</th>
                   <th className="text-right font-semibold py-2 pr-3">{m3}</th>
                   <th className="text-right font-semibold py-2 pr-3">Projected Bonus</th>
-                  <th className="text-right font-semibold py-2">Balance to Next Tier</th>
+                  <th className="text-right font-semibold py-2">Next FYC Tier</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -42,8 +42,8 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                     <td className="py-2 pr-3 text-right tabular-nums text-slate-700">{formatNumber(r.m1Cases)}</td>
                     <td className="py-2 pr-3 text-right tabular-nums text-slate-700">{formatNumber(r.m2Cases)}</td>
                     <td className="py-2 pr-3 text-right tabular-nums text-slate-700">{formatNumber(r.m3Cases)}</td>
-                    <td className="py-2 pr-3 text-right text-slate-300">—</td>
-                    <td className="py-2 text-right text-slate-300">—</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">{r.projectedBonus == null ? '—' : formatPeso(r.projectedBonus)}</td>
+                    <td className="py-2 text-right tabular-nums text-slate-700">{r.balanceToNextTier == null ? '—' : formatPeso(r.balanceToNextTier)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -52,7 +52,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
         </div>
 
         <div className="p-3 border-t border-slate-200 text-xs text-slate-500">
-          Case counts exclude Guardian variants. Guardian FYC is still included in total FYC.
+          Case counts exclude Guardian variants. Guardian FYC is still included in total FYC. Projected Bonus assumes 82.5%+ persistency (100% multiplier) and ignores net adjustments.
         </div>
       </div>
 
