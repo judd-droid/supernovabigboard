@@ -34,6 +34,8 @@ export type SalesRoundupItem = {
 
 export type PpbTrackerRow = {
   advisor: string;
+  // Classification from the roster (used for PPB-only filtering)
+  spaLeg?: string;
   fyc: number;
   cases: number;
   m1Cases: number;

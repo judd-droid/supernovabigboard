@@ -1,9 +1,32 @@
+/* eslint-disable react/no-unescaped-entities */
+'use client';
+
+import { useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { formatNumber, formatPeso } from '@/lib/format';
 import type { PpbTracker } from '@/lib/types';
 
 export function PpbTrackerRow({ data }: { data: PpbTracker }) {
   const [m1, m2, m3] = data.months;
+
+  type PpbAdvisorFilter = 'All' | 'Spartans' | 'Legacy';
+  const [advisorFilter, setAdvisorFilter] = useState<PpbAdvisorFilter>('All');
+
+  const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
+
+  const bucketFor = (raw: unknown): 'spartan' | 'legacy' | null => {
+    const c = norm(raw);
+    if (!c) return null;
+    if (c === 'spa' || c === 'spartan' || c === 'spartans' || c.includes('spartan')) return 'spartan';
+    if (c === 'leg' || c === 'legacy' || c.includes('legacy')) return 'legacy';
+    return null;
+  };
+
+  const filteredRows = useMemo(() => {
+    if (advisorFilter === 'All') return data.rows;
+    const target = advisorFilter === 'Spartans' ? 'spartan' : 'legacy';
+    return data.rows.filter(r => bucketFor(r.spaLeg) === target);
+  }, [advisorFilter, data.rows]);
 
   return (
     <div className="rounded-2xl bg-white border border-slate-200 shadow-sm">
@@ -12,12 +35,29 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
             <Badge tone="slate">PPB Tracker</Badge>
             <div className="text-xs text-slate-500">{data.quarter} (QTD)</div>
           </div>
-          <div className="text-xs text-slate-400">FYC · Cases</div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center rounded-xl bg-slate-100 p-1">
+              {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
+                <button
+                  key={`ppb-filter-${v}`}
+                  onClick={() => setAdvisorFilter(v)}
+                  className={`px-3 py-1.5 text-xs rounded-lg ${advisorFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            <div className="text-xs text-slate-400">FYC · Cases</div>
+          </div>
         </div>
 
         <div className="max-h-[360px] overflow-auto p-3">
-          {data.rows.length === 0 ? (
-            <div className="text-sm text-slate-500">No approved sales in this quarter yet.</div>
+          {filteredRows.length === 0 ? (
+            <div className="text-sm text-slate-500">
+              {data.rows.length === 0
+                ? 'No approved sales in this quarter yet.'
+                : 'No advisors match the selected filter yet.'}
+            </div>
           ) : (
             <table className="w-full text-sm min-w-[1180px]">
               <thead>
@@ -37,7 +77,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {data.rows.map((r) => (
+                {filteredRows.map((r) => (
                   <tr key={`ppb-${r.advisor}`}>
                     <td className="py-2 pr-3 font-medium text-slate-800 max-w-[220px] truncate">{r.advisor}</td>
                     <td className="py-2 pr-3 text-right tabular-nums text-slate-700">{formatPeso(r.fyc)}</td>

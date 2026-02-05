@@ -706,6 +706,7 @@ export const buildPpbTracker = (
       // - Must be active in >=2 months within the quarter (Guardian excluded)
       //   * If PA month falls in the 3rd month of the quarter, waive the 2-month rule.
       const entry = getRoster(r.advisor);
+      const spaLeg = String(entry?.spaLeg ?? '').trim() || undefined;
       const paKey = paMonthKey(entry?.paDate ?? null);
       const paIdx = paKey ? quarterMonthKeys.indexOf(paKey) : -1;
 
@@ -728,6 +729,7 @@ export const buildPpbTracker = (
 
       return {
         advisor: r.advisor,
+        spaLeg,
         fyc,
         cases: r.cases,
         m1Cases: r.m[0],
