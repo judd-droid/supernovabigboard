@@ -297,8 +297,9 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                 <div className="mt-4 text-[10px] text-slate-800 italic">Godspeed ⚡</div>
               </div>
 
-              {/* Footer + stamp (captured in PNG export) */}
-              <div className="absolute bottom-4 left-5 right-16 text-[8px] leading-snug text-slate-700/90">
+              {/* Footer + stamp (captured in PNG export)
+                  Slight upward nudge to visually align footer text with the stamp bottom. */}
+              <div className="absolute bottom-4 left-5 right-16 -translate-y-1 text-[8px] leading-snug text-slate-700/90">
                 Stats are based on Supernova records. For the most accurate, up-to-date stats, refer to official trackers and your Sales Indicator (Agency Portal).
               </div>
               <img
