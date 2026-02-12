@@ -53,48 +53,13 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
 
       const html2canvas = await loadHtml2Canvas();
 
-      // IMPORTANT:
-      // `foreignObjectRendering` can produce blank PNGs in some browser/OS combinations.
-      // So we export using the default renderer, but we patch the *cloned* DOM to:
-      // 1) avoid cap-height clipping for bold titles, and
-      // 2) keep the exact same vertical layout as the popup.
-      //
-      // Strategy: html2canvas can under-estimate a font's ascent (especially at higher scale
-      // and with heavy weights). If the title is also overflow-clamped, the top of glyphs can
-      // get cut off in the PNG even though it looks fine in the browser.
-      //
-      // We fix this by adding *extra* top headroom INSIDE the title, then cancelling the
-      // extra height with a negative margin-bottom so the rest of the note keeps its exact
-      // vertical layout (no shifting/"not centered" look).
-      const canvas = await html2canvas(noteRef.current, ({
+      // Capture the note as-is.
+      // We keep the DOM styling identical between popup and PNG so the image matches perfectly.
+      const canvas = await html2canvas(noteRef.current, {
         scale: 2,
         useCORS: true,
         backgroundColor: '#FEF9C3', // tailwind yellow-100
-        onclone: (doc: Document) => {
-          const title = doc.querySelector('[data-jolt-title="1"]') as HTMLElement | null;
-          if (title) {
-            // Remove -webkit line clamp in the clone (a frequent source of canvas clipping),
-            // and replace with a simple 2-line maxHeight clamp.
-            title.style.display = 'block';
-            title.style.overflow = 'hidden';
-            title.style.whiteSpace = 'normal';
-            title.style.webkitLineClamp = 'unset' as any;
-            (title.style as any).webkitBoxOrient = 'unset';
-
-            // Keep size consistent but safer.
-            // Slightly smaller so long names wrap less often.
-            title.style.fontSize = '18px';
-            title.style.lineHeight = '1.25';
-            title.style.maxHeight = '60px'; // ~2 lines @ 18px * 1.25 + headroom
-
-            // Add EXTRA headroom (prevents top clipping in PNG) without shifting the layout.
-            // The live popup already has ~6px top padding via Tailwind (pt-1.5).
-            // We bump it to 14px (+8px), then cancel the extra height with -8px margin-bottom.
-            title.style.paddingTop = '14px';
-            title.style.marginBottom = '-8px';
-          }
-        },
-      } as any));
+      } as any);
       const dataUrl = canvas.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = dataUrl;
@@ -246,7 +211,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
             <div
               ref={noteRef}
               data-jolt-note="1"
-              className="w-[360px] max-w-[92vw] h-[360px] bg-yellow-100 border border-yellow-200 rounded-2xl shadow-xl p-5 overflow-hidden"
+              className="w-[360px] max-w-[92vw] h-[360px] bg-yellow-100 border border-yellow-200 rounded-2xl shadow-xl p-5"
             >
               {/*
                 NOTE (export stability):
@@ -255,7 +220,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
               */}
               <div
                 data-jolt-title="1"
-                className="text-[18px] font-extrabold text-slate-900 leading-[1.25] pt-1.5 pr-1 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden"
+                className="text-[17px] font-extrabold text-slate-900 leading-[1.25] pt-3 pr-1 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden"
                 title={joltRow.advisor}
               >
                 {joltRow.advisor}
