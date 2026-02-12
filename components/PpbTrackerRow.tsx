@@ -220,7 +220,13 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
               */}
               <div
                 data-jolt-title="1"
-                className="text-[17px] font-extrabold text-slate-900 leading-[1.25] pt-3 pr-1 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden"
+                // IMPORTANT (export fidelity):
+                // html2canvas can clip the top of bold text when the title uses WebKit line clamping
+                // (`display:-webkit-box` + `-webkit-line-clamp`) together with `overflow-hidden`.
+                // To keep the PNG looking exactly like the popup, we avoid WebKit clamping here.
+                // Instead, we allow natural wrapping and clamp by max-height (2 lines) + overflow.
+                className="text-[16px] font-extrabold text-slate-900 leading-[1.35] pr-1 overflow-hidden"
+                style={{ maxHeight: '2.7em' }}
                 title={joltRow.advisor}
               >
                 {joltRow.advisor}
