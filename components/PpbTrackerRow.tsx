@@ -45,11 +45,44 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
     if (!joltRow || !noteRef.current) return;
     setIsSaving(true);
     try {
+      // Ensure web fonts are fully loaded before capture to avoid text metric glitches.
+      // (This is a common cause of clipping in canvas renders.)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fontsReady = (document as any).fonts?.ready;
+      if (fontsReady) await fontsReady;
+
       const html2canvas = await loadHtml2Canvas();
       const canvas = await html2canvas(noteRef.current, {
         scale: 2,
         useCORS: true,
         backgroundColor: null,
+        // Fix: html2canvas can mis-render/clip large bold text when it sits inside
+        // `-webkit-line-clamp` / `display:-webkit-box` containers. We adjust the
+        // cloned DOM to render the title in a plain block layout for export only.
+        onclone: (doc) => {
+          const note = doc.querySelector('[data-jolt-note="1"]') as HTMLElement | null;
+          const title = doc.querySelector('[data-jolt-title="1"]') as HTMLElement | null;
+
+          // Keep the export visually identical while avoiding crop bugs.
+          if (note) {
+            // Avoid any accidental clipping from the note itself.
+            note.style.overflow = 'visible';
+          }
+
+          if (title) {
+            // Remove the webkit clamping layout for the export.
+            title.style.display = 'block';
+            title.style.overflow = 'visible';
+            title.style.whiteSpace = 'normal';
+            title.style.wordBreak = 'break-word';
+            // Make sure the glyphs have breathing room at the top.
+            title.style.paddingTop = '10px';
+            title.style.lineHeight = '1.2';
+            // Clear any line-clamp properties that can confuse html2canvas.
+            title.style.removeProperty('-webkit-line-clamp');
+            title.style.removeProperty('-webkit-box-orient');
+          }
+        },
       });
       const dataUrl = canvas.toDataURL('image/png');
       const a = document.createElement('a');
@@ -201,6 +234,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
           <div className="relative">
             <div
               ref={noteRef}
+              data-jolt-note="1"
               className="w-[360px] max-w-[92vw] h-[360px] bg-yellow-100 border border-yellow-200 rounded-2xl shadow-xl p-5 overflow-hidden"
             >
               {/*
@@ -209,6 +243,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                 We clamp to 2 lines instead, add a tiny top padding, and keep overflow only for clamping.
               */}
               <div
+                data-jolt-title="1"
                 className="text-[22px] font-extrabold text-slate-900 leading-[1.2] pt-1 pr-1 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden"
                 title={joltRow.advisor}
               >
