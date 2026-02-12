@@ -213,30 +213,30 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
             <div
               ref={noteRef}
               data-jolt-note="1"
-              className="w-[360px] max-w-[92vw] h-[360px] bg-yellow-100 border border-yellow-200 rounded-2xl shadow-xl p-5"
+              className="relative w-[360px] max-w-[92vw] h-[360px] bg-yellow-100 border border-yellow-200 rounded-2xl shadow-xl p-5"
             >
               {/*
                 NOTE (export stability):
                 html2canvas can clip large, bold text when the element uses `truncate` (overflow-hidden).
                 We clamp to 2 lines instead, add a tiny top padding, and keep overflow only for clamping.
               */}
-              <div
-                data-jolt-title="1"
-                // IMPORTANT (export fidelity):
-                // html2canvas can clip the top of bold text when the title is overflow-clamped.
-                // The most reliable fix is to avoid overflow clamping on the title entirely and
-                // simply let it wrap naturally. We also slightly reduce the title size so it fits
-                // comfortably within the note.
-                className="text-[12px] font-bold text-slate-900 leading-[1.35] pr-1 break-words"
-                title={joltRow.advisor}
-              >
-                {joltRow.advisor}
-              </div>
-              <div className="text-[9px] text-slate-700 mt-0.5">
-                {data.quarter} • Quarter-to-date PPB
-              </div>
+              {/* Main note content (reserve space at bottom for footer + logo stamp) */}
+              <div className="pb-14">
+                <div
+                  data-jolt-title="1"
+                  // IMPORTANT (export fidelity):
+                  // html2canvas can clip the top of bold text when the title is overflow-clamped.
+                  // We avoid overflow clamping entirely and let it wrap naturally.
+                  className="text-[12px] font-bold text-slate-900 leading-[1.35] pr-1 break-words"
+                  title={joltRow.advisor}
+                >
+                  {joltRow.advisor}
+                </div>
+                <div className="text-[9px] text-slate-700 mt-0.5">
+                  {data.quarter} • Quarter-to-date PPB
+                </div>
 
-              <div className="mt-3 h-px bg-slate-900/10" />
+                <div className="mt-3 h-px bg-slate-900/10" />
 
               <div className="mt-3 text-[11px] text-slate-900 leading-snug">
                 {joltRow.totalBonusRate > 0 ? (
@@ -294,7 +294,19 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                 )}
               </div>
 
-              <div className="mt-4 text-[10px] text-slate-800 italic">Godspeed ⚡</div>
+                <div className="mt-4 text-[10px] text-slate-800 italic">Godspeed ⚡</div>
+              </div>
+
+              {/* Footer + stamp (captured in PNG export) */}
+              <div className="absolute bottom-4 left-5 right-16 text-[8px] leading-snug text-slate-700/90">
+                Stats are based on Supernova records. For the most accurate, up-to-date stats, refer to official trackers and your Sales Indicator (Agency Portal).
+              </div>
+              <img
+                src="/supernova-stamp.png"
+                alt="Supernova"
+                className="absolute bottom-4 right-4 w-10 h-auto opacity-80"
+                loading="eager"
+              />
             </div>
 
             <button
