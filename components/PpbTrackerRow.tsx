@@ -55,8 +55,10 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
 
       // Capture the note as-is.
       // We keep the DOM styling identical between popup and PNG so the image matches perfectly.
+      // Use a higher capture scale to reduce html2canvas font-metric rounding artifacts
+      // (a common cause of top-edge clipping for bold text in PNG exports on some machines).
       const canvas = await html2canvas(noteRef.current, {
-        scale: 2,
+        scale: 3,
         useCORS: true,
         backgroundColor: '#FEF9C3', // tailwind yellow-100
       } as any);
@@ -221,27 +223,22 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
               <div
                 data-jolt-title="1"
                 // IMPORTANT (export fidelity):
-                // html2canvas can clip the top of bold text when the title uses WebKit line clamping
-                // (`display:-webkit-box` + `-webkit-line-clamp`) together with `overflow-hidden`.
-                // To keep the PNG looking exactly like the popup, we avoid WebKit clamping here.
-                // Instead, we allow natural wrapping and clamp by max-height (2 lines) + overflow.
-                className="text-[15px] font-bold text-slate-900 leading-[1.35] pr-1 overflow-hidden"
-                // Canvas safety:
-                // html2canvas can clip the very top pixels of heavy font weights when an element is also
-                // overflow-clamped. We give the title a tiny internal "headroom" during normal layout
-                // WITHOUT shifting the rest of the note by canceling it with a negative bottom margin.
-                style={{ maxHeight: '2.7em', paddingTop: '2px', marginBottom: '-2px' }}
+                // html2canvas can clip the top of bold text when the title is overflow-clamped.
+                // The most reliable fix is to avoid overflow clamping on the title entirely and
+                // simply let it wrap naturally. We also slightly reduce the title size so it fits
+                // comfortably within the note.
+                className="text-[12px] font-bold text-slate-900 leading-[1.35] pr-1 break-words"
                 title={joltRow.advisor}
               >
                 {joltRow.advisor}
               </div>
-              <div className="text-[11px] text-slate-700 mt-0.5">
+              <div className="text-[9px] text-slate-700 mt-0.5">
                 {data.quarter} • Quarter-to-date PPB
               </div>
 
               <div className="mt-3 h-px bg-slate-900/10" />
 
-              <div className="mt-3 text-sm text-slate-900 leading-snug">
+              <div className="mt-3 text-[11px] text-slate-900 leading-snug">
                 {joltRow.totalBonusRate > 0 ? (
                   <>
                     Well done — you&apos;re at <span className="font-extrabold">{pct(joltRow.totalBonusRate)}</span> total bonus rate so far.
@@ -251,28 +248,28 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                 )}
               </div>
 
-              <div className="mt-3 text-[13px] text-slate-900">
-                <div className="font-semibold">How you got here</div>
+              <div className="mt-3 text-[11px] text-slate-900">
+                <div className="font-semibold text-[11px]">How you got here</div>
                 <ul className="mt-1 space-y-1">
                   <li>
-                    • FYC: <span className="font-extrabold text-[14px]">{formatPeso(joltRow.fyc)}</span> →{' '}
-                    <span className="font-extrabold text-[14px]">{pct(joltRow.ppbRate)}</span>
+                    • FYC: <span className="font-extrabold text-[12px]">{formatPeso(joltRow.fyc)}</span> →{' '}
+                    <span className="font-extrabold text-[12px]">{pct(joltRow.ppbRate)}</span>
                   </li>
                   <li>
-                    • Cases: <span className="font-extrabold text-[14px]">{formatNumber(joltRow.cases)}</span>{' '}
+                    • Cases: <span className="font-extrabold text-[12px]">{formatNumber(joltRow.cases)}</span>{' '}
                     {joltRow.ccbRate == null ? (
                       <span className="text-slate-600">(CCB not applicable)</span>
                     ) : (
                       <>
-                        → <span className="font-extrabold text-[14px]">+{pct(joltRow.ccbRate)}</span>
+                        → <span className="font-extrabold text-[12px]">+{pct(joltRow.ccbRate)}</span>
                       </>
                     )}
                   </li>
                 </ul>
               </div>
 
-              <div className="mt-3 text-[13px] text-slate-900">
-                <div className="font-semibold">To reach the next level</div>
+              <div className="mt-3 text-[11px] text-slate-900">
+                <div className="font-semibold text-[11px]">To reach the next level</div>
 
                 {joltRow.fycToNextBonusTier == null && joltRow.casesToNextCcbTier == null ? (
                   <div className="mt-1 text-slate-700">You&apos;re already at the top tier for this bonus. Keep compounding.</div>
@@ -280,8 +277,8 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                   <div className="mt-1 space-y-1">
                     {joltRow.fycToNextBonusTier != null && (
                       <div>
-                        • +<span className="font-extrabold text-[14px]">{formatPeso(joltRow.fycToNextBonusTier)}</span> FYC →{' '}
-                        <span className="font-extrabold text-[14px]">{pct(joltRow.nextPpbRate)}</span>
+                        • +<span className="font-extrabold text-[12px]">{formatPeso(joltRow.fycToNextBonusTier)}</span> FYC →{' '}
+                        <span className="font-extrabold text-[12px]">{pct(joltRow.nextPpbRate)}</span>
                       </div>
                     )}
                     {joltRow.fycToNextBonusTier != null && joltRow.casesToNextCcbTier != null && (
@@ -289,15 +286,15 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                     )}
                     {joltRow.casesToNextCcbTier != null && (
                       <div>
-                        • +<span className="font-extrabold text-[14px]">{formatNumber(joltRow.casesToNextCcbTier)}</span> case(s) →{' '}
-                        <span className="font-extrabold text-[14px]">+{pct(joltRow.nextCcbRate)}</span>
+                        • +<span className="font-extrabold text-[12px]">{formatNumber(joltRow.casesToNextCcbTier)}</span> case(s) →{' '}
+                        <span className="font-extrabold text-[12px]">+{pct(joltRow.nextCcbRate)}</span>
                       </div>
                     )}
                   </div>
                 )}
               </div>
 
-              <div className="mt-4 text-xs text-slate-800 italic">Godspeed ⚡</div>
+              <div className="mt-4 text-[10px] text-slate-800 italic">Godspeed ⚡</div>
             </div>
 
             <button
@@ -315,9 +312,9 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
               type="button"
               onClick={saveJoltAsImage}
               disabled={isSaving}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold shadow-sm hover:bg-slate-800 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2 text-xs font-semibold shadow-sm hover:bg-slate-800 disabled:opacity-60"
             >
-              <Download size={16} />
+              <Download size={14} />
               {isSaving ? 'Saving…' : 'Save as PNG'}
             </button>
             <div className="text-[11px] text-slate-100/90">Tip: click outside the note to close.</div>
