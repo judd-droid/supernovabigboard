@@ -203,7 +203,15 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
               ref={noteRef}
               className="w-[360px] max-w-[92vw] h-[360px] bg-yellow-100 border border-yellow-200 rounded-2xl shadow-xl p-5 overflow-hidden"
             >
-              <div className="text-lg font-extrabold text-slate-900 leading-tight truncate" title={joltRow.advisor}>
+              {/*
+                NOTE (export stability):
+                html2canvas can clip large, bold text when the element uses `truncate` (overflow-hidden).
+                We clamp to 2 lines instead, add a tiny top padding, and keep overflow only for clamping.
+              */}
+              <div
+                className="text-[22px] font-extrabold text-slate-900 leading-[1.2] pt-1 pr-1 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden"
+                title={joltRow.advisor}
+              >
                 {joltRow.advisor}
               </div>
               <div className="text-[11px] text-slate-700 mt-0.5">
@@ -222,27 +230,27 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                 )}
               </div>
 
-              <div className="mt-3 text-[12px] text-slate-900">
+              <div className="mt-3 text-[13px] text-slate-900">
                 <div className="font-semibold">How you got here</div>
                 <ul className="mt-1 space-y-1">
                   <li>
-                    • FYC: <span className="font-semibold">{formatPeso(joltRow.fyc)}</span> →{' '}
-                    <span className="font-semibold">{pct(joltRow.ppbRate)}</span>
+                    • FYC: <span className="font-extrabold text-[14px]">{formatPeso(joltRow.fyc)}</span> →{' '}
+                    <span className="font-extrabold text-[14px]">{pct(joltRow.ppbRate)}</span>
                   </li>
                   <li>
-                    • Cases: <span className="font-semibold">{formatNumber(joltRow.cases)}</span>{' '}
+                    • Cases: <span className="font-extrabold text-[14px]">{formatNumber(joltRow.cases)}</span>{' '}
                     {joltRow.ccbRate == null ? (
                       <span className="text-slate-600">(CCB not applicable)</span>
                     ) : (
                       <>
-                        → <span className="font-semibold">+{pct(joltRow.ccbRate)}</span>
+                        → <span className="font-extrabold text-[14px]">+{pct(joltRow.ccbRate)}</span>
                       </>
                     )}
                   </li>
                 </ul>
               </div>
 
-              <div className="mt-3 text-[12px] text-slate-900">
+              <div className="mt-3 text-[13px] text-slate-900">
                 <div className="font-semibold">To reach the next level</div>
 
                 {joltRow.fycToNextBonusTier == null && joltRow.casesToNextCcbTier == null ? (
@@ -251,8 +259,8 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                   <div className="mt-1 space-y-1">
                     {joltRow.fycToNextBonusTier != null && (
                       <div>
-                        • +<span className="font-semibold">{formatPeso(joltRow.fycToNextBonusTier)}</span> FYC →{' '}
-                        <span className="font-semibold">{pct(joltRow.nextPpbRate)}</span>
+                        • +<span className="font-extrabold text-[14px]">{formatPeso(joltRow.fycToNextBonusTier)}</span> FYC →{' '}
+                        <span className="font-extrabold text-[14px]">{pct(joltRow.nextPpbRate)}</span>
                       </div>
                     )}
                     {joltRow.fycToNextBonusTier != null && joltRow.casesToNextCcbTier != null && (
@@ -260,8 +268,8 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                     )}
                     {joltRow.casesToNextCcbTier != null && (
                       <div>
-                        • +<span className="font-semibold">{formatNumber(joltRow.casesToNextCcbTier)}</span> case(s) →{' '}
-                        <span className="font-semibold">+{pct(joltRow.nextCcbRate)}</span>
+                        • +<span className="font-extrabold text-[14px]">{formatNumber(joltRow.casesToNextCcbTier)}</span> case(s) →{' '}
+                        <span className="font-extrabold text-[14px]">+{pct(joltRow.nextCcbRate)}</span>
                       </div>
                     )}
                   </div>
