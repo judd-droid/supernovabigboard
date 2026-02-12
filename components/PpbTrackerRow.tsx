@@ -52,13 +52,40 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
       if (fontsReady) await fontsReady;
 
       const html2canvas = await loadHtml2Canvas();
-      // Use foreignObjectRendering for better text fidelity (prevents cap-height clipping)
-      // and keeps the exported layout identical to what users see.
+
+      // IMPORTANT:
+      // `foreignObjectRendering` can produce blank PNGs in some browser/OS combinations.
+      // So we export using the default renderer, but we patch the *cloned* DOM to:
+      // 1) avoid cap-height clipping for bold titles, and
+      // 2) keep the exact same vertical layout as the popup.
+      //
+      // Strategy: add a little top headroom to the title (padding-top), then cancel the
+      // layout shift by applying an equal negative margin-bottom.
       const canvas = await html2canvas(noteRef.current, ({
         scale: 2,
         useCORS: true,
-        backgroundColor: null,
-        foreignObjectRendering: true,
+        backgroundColor: '#FEF9C3', // tailwind yellow-100
+        onclone: (doc: Document) => {
+          const title = doc.querySelector('[data-jolt-title="1"]') as HTMLElement | null;
+          if (title) {
+            // Remove -webkit line clamp in the clone (a frequent source of canvas clipping),
+            // and replace with a simple 2-line maxHeight clamp.
+            title.style.display = 'block';
+            title.style.overflow = 'hidden';
+            title.style.whiteSpace = 'normal';
+            title.style.webkitLineClamp = 'unset' as any;
+            (title.style as any).webkitBoxOrient = 'unset';
+
+            // Keep size consistent but safer.
+            title.style.fontSize = '19px';
+            title.style.lineHeight = '1.25';
+            title.style.maxHeight = '48px'; // ~2 lines @ 19px * 1.25
+
+            // Add headroom (prevents top clipping in PNG) without shifting the layout.
+            title.style.paddingTop = '6px';
+            title.style.marginBottom = '-6px';
+          }
+        },
       } as any));
       const dataUrl = canvas.toDataURL('image/png');
       const a = document.createElement('a');
@@ -220,7 +247,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
               */}
               <div
                 data-jolt-title="1"
-                className="text-[20px] font-extrabold text-slate-900 leading-[1.25] pt-1.5 pr-1 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden"
+                className="text-[19px] font-extrabold text-slate-900 leading-[1.25] pt-1.5 pr-1 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden"
                 title={joltRow.advisor}
               >
                 {joltRow.advisor}
