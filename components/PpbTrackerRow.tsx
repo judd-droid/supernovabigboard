@@ -81,9 +81,14 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
             title.style.lineHeight = '1.2';
             title.style.maxHeight = '54px'; // 22px * 1.2 * 2 lines ≈ 53px
             // Critical: avoid changing layout height (which messes up centering).
-            // Instead, nudge the rendered glyphs down a hair so the top of bold
-            // characters won't be clipped in the exported canvas.
-            title.style.transform = 'translateY(2px)';
+            // Instead of a transform (which can still clip on some systems),
+            // add a tiny bit of *internal* top padding for extra glyph headroom,
+            // then cancel the extra box height with a negative bottom margin.
+            // Net result: same layout/centering, but no clipped caps in the PNG.
+            title.style.boxSizing = 'border-box';
+            title.style.paddingTop = '6px';
+            title.style.marginBottom = '-6px';
+            title.style.transform = 'none';
             // Clear any line-clamp properties that can confuse html2canvas.
             title.style.removeProperty('-webkit-line-clamp');
             title.style.removeProperty('-webkit-box-orient');
@@ -256,7 +261,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                 {joltRow.advisor}
               </div>
               <div className="text-[11px] text-slate-700 mt-0.5">
-                {data.quarter} • Quarter-to-date
+                {data.quarter} • Quarter-to-date PPB
               </div>
 
               <div className="mt-3 h-px bg-slate-900/10" />
@@ -267,7 +272,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                     Well done — you&apos;re at <span className="font-extrabold">{pct(joltRow.totalBonusRate)}</span> total bonus rate so far.
                   </>
                 ) : (
-                  <>No bonus yet — let&apos;s get you into your first tier this quarter.</>
+                  <>No bonus yet — let&apos;s get you into your first tier.</>
                 )}
               </div>
 
