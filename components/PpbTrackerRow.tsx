@@ -59,8 +59,13 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
       // 1) avoid cap-height clipping for bold titles, and
       // 2) keep the exact same vertical layout as the popup.
       //
-      // Strategy: add a little top headroom to the title (padding-top), then cancel the
-      // layout shift by applying an equal negative margin-bottom.
+      // Strategy: html2canvas can under-estimate a font's ascent (especially at higher scale
+      // and with heavy weights). If the title is also overflow-clamped, the top of glyphs can
+      // get cut off in the PNG even though it looks fine in the browser.
+      //
+      // We fix this by adding *extra* top headroom INSIDE the title, then cancelling the
+      // extra height with a negative margin-bottom so the rest of the note keeps its exact
+      // vertical layout (no shifting/"not centered" look).
       const canvas = await html2canvas(noteRef.current, ({
         scale: 2,
         useCORS: true,
@@ -77,13 +82,16 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
             (title.style as any).webkitBoxOrient = 'unset';
 
             // Keep size consistent but safer.
-            title.style.fontSize = '19px';
+            // Slightly smaller so long names wrap less often.
+            title.style.fontSize = '18px';
             title.style.lineHeight = '1.25';
-            title.style.maxHeight = '48px'; // ~2 lines @ 19px * 1.25
+            title.style.maxHeight = '60px'; // ~2 lines @ 18px * 1.25 + headroom
 
-            // Add headroom (prevents top clipping in PNG) without shifting the layout.
-            title.style.paddingTop = '6px';
-            title.style.marginBottom = '-6px';
+            // Add EXTRA headroom (prevents top clipping in PNG) without shifting the layout.
+            // The live popup already has ~6px top padding via Tailwind (pt-1.5).
+            // We bump it to 14px (+8px), then cancel the extra height with -8px margin-bottom.
+            title.style.paddingTop = '14px';
+            title.style.marginBottom = '-8px';
           }
         },
       } as any));
@@ -247,7 +255,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
               */}
               <div
                 data-jolt-title="1"
-                className="text-[19px] font-extrabold text-slate-900 leading-[1.25] pt-1.5 pr-1 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden"
+                className="text-[18px] font-extrabold text-slate-900 leading-[1.25] pt-1.5 pr-1 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden"
                 title={joltRow.advisor}
               >
                 {joltRow.advisor}
