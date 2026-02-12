@@ -52,49 +52,14 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
       if (fontsReady) await fontsReady;
 
       const html2canvas = await loadHtml2Canvas();
-      const canvas = await html2canvas(noteRef.current, {
+      // Use foreignObjectRendering for better text fidelity (prevents cap-height clipping)
+      // and keeps the exported layout identical to what users see.
+      const canvas = await html2canvas(noteRef.current, ({
         scale: 2,
         useCORS: true,
         backgroundColor: null,
-        // Fix: html2canvas can clip large bold text (especially bold caps) due to
-        // font-metric differences in the canvas renderer. We keep the on-screen
-        // layout, but slightly nudge the painted glyphs DOWN during export (no
-        // layout shift) and remove webkit clamping which can trigger crop bugs.
-        onclone: (doc) => {
-          const note = doc.querySelector('[data-jolt-note="1"]') as HTMLElement | null;
-          const title = doc.querySelector('[data-jolt-title="1"]') as HTMLElement | null;
-
-          // Keep the export visually identical while avoiding crop bugs.
-          if (note) {
-            // Preserve rounded corners and match the popup.
-            note.style.overflow = 'hidden';
-          }
-
-          if (title) {
-            // Remove the webkit clamping layout for the export.
-            title.style.display = 'block';
-            // Keep a 2-line cap like the popup (without relying on -webkit-line-clamp).
-            // This also keeps the overall vertical layout stable.
-            title.style.overflow = 'hidden';
-            title.style.whiteSpace = 'normal';
-            title.style.wordBreak = 'break-word';
-            title.style.lineHeight = '1.2';
-            title.style.maxHeight = '54px'; // 22px * 1.2 * 2 lines ≈ 53px
-            // Critical: avoid changing layout height (which messes up centering).
-            // Instead of a transform (which can still clip on some systems),
-            // add a tiny bit of *internal* top padding for extra glyph headroom,
-            // then cancel the extra box height with a negative bottom margin.
-            // Net result: same layout/centering, but no clipped caps in the PNG.
-            title.style.boxSizing = 'border-box';
-            title.style.paddingTop = '6px';
-            title.style.marginBottom = '-6px';
-            title.style.transform = 'none';
-            // Clear any line-clamp properties that can confuse html2canvas.
-            title.style.removeProperty('-webkit-line-clamp');
-            title.style.removeProperty('-webkit-box-orient');
-          }
-        },
-      });
+        foreignObjectRendering: true,
+      } as any));
       const dataUrl = canvas.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = dataUrl;
@@ -255,7 +220,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
               */}
               <div
                 data-jolt-title="1"
-                className="text-[22px] font-extrabold text-slate-900 leading-[1.2] pt-1 pr-1 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden"
+                className="text-[20px] font-extrabold text-slate-900 leading-[1.25] pt-1.5 pr-1 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden"
                 title={joltRow.advisor}
               >
                 {joltRow.advisor}
@@ -310,7 +275,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                       </div>
                     )}
                     {joltRow.fycToNextBonusTier != null && joltRow.casesToNextCcbTier != null && (
-                      <div className="text-slate-600 italic">and/or</div>
+                      <div className="text-slate-600 italic">{joltRow.totalBonusRate > 0 ? 'and/or' : 'then'}</div>
                     )}
                     {joltRow.casesToNextCcbTier != null && (
                       <div>
