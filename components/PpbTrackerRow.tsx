@@ -56,28 +56,34 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
         scale: 2,
         useCORS: true,
         backgroundColor: null,
-        // Fix: html2canvas can mis-render/clip large bold text when it sits inside
-        // `-webkit-line-clamp` / `display:-webkit-box` containers. We adjust the
-        // cloned DOM to render the title in a plain block layout for export only.
+        // Fix: html2canvas can clip large bold text (especially bold caps) due to
+        // font-metric differences in the canvas renderer. We keep the on-screen
+        // layout, but slightly nudge the painted glyphs DOWN during export (no
+        // layout shift) and remove webkit clamping which can trigger crop bugs.
         onclone: (doc) => {
           const note = doc.querySelector('[data-jolt-note="1"]') as HTMLElement | null;
           const title = doc.querySelector('[data-jolt-title="1"]') as HTMLElement | null;
 
           // Keep the export visually identical while avoiding crop bugs.
           if (note) {
-            // Avoid any accidental clipping from the note itself.
-            note.style.overflow = 'visible';
+            // Preserve rounded corners and match the popup.
+            note.style.overflow = 'hidden';
           }
 
           if (title) {
             // Remove the webkit clamping layout for the export.
             title.style.display = 'block';
-            title.style.overflow = 'visible';
+            // Keep a 2-line cap like the popup (without relying on -webkit-line-clamp).
+            // This also keeps the overall vertical layout stable.
+            title.style.overflow = 'hidden';
             title.style.whiteSpace = 'normal';
             title.style.wordBreak = 'break-word';
-            // Make sure the glyphs have breathing room at the top.
-            title.style.paddingTop = '10px';
             title.style.lineHeight = '1.2';
+            title.style.maxHeight = '54px'; // 22px * 1.2 * 2 lines ≈ 53px
+            // Critical: avoid changing layout height (which messes up centering).
+            // Instead, nudge the rendered glyphs down a hair so the top of bold
+            // characters won't be clipped in the exported canvas.
+            title.style.transform = 'translateY(2px)';
             // Clear any line-clamp properties that can confuse html2canvas.
             title.style.removeProperty('-webkit-line-clamp');
             title.style.removeProperty('-webkit-box-orient');
