@@ -1,6 +1,7 @@
 import { Badge } from './Badge';
 import { formatNumber, formatPeso } from '@/lib/format';
 import type { ProductSaleItem, SalesRoundupItem } from '@/lib/types';
+import { useMemo, useState } from 'react';
 
 function sumFyc(items: ProductSaleItem[]) {
   return items.reduce((acc, r) => acc + (r.fyc ?? 0), 0);
@@ -61,6 +62,50 @@ export function SpecialLookoutsRow({
 }) {
   const { threePlus, watch2, watch1 } = consistentMonthlyProducers;
   const asOfDisplay = (consistentMonthlyProducers.asOfMonth ?? '').replace('-', '/');
+
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+
+  const salesRoundupText = useMemo(() => {
+    if (!salesRoundup || salesRoundup.length === 0) return '';
+    return salesRoundup
+      .map((s) => {
+        const showAmt = (s.afyc ?? 0) >= 1000;
+        const left = `${s.advisor ?? ''} — ${s.product ?? ''}`.trim();
+        return showAmt ? `${left} — ${formatPeso(s.afyc)}` : left;
+      })
+      .join('\n');
+  }, [salesRoundup]);
+
+  const copySalesRoundup = async () => {
+    if (!salesRoundupText) return;
+    try {
+      // Prefer async clipboard API (works on https / localhost)
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(salesRoundupText);
+      } else {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = salesRoundupText;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        ta.style.top = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+
+      setCopyError(null);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch (e) {
+      setCopied(false);
+      setCopyError('Copy failed. Try again.');
+      window.setTimeout(() => setCopyError(null), 2500);
+    }
+  };
 
   const AnyList = ({ title, items, tone }: { title: string; items: Array<{ advisor: string; streakMonths: number }>; tone: 'green' | 'amber' | 'slate' }) => (
     <div className="mt-3">
@@ -153,6 +198,23 @@ export function SpecialLookoutsRow({
               })}
             </ul>
           )}
+        </div>
+
+        {/* Footer actions */}
+        <div className="p-3 border-t border-slate-200 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={copySalesRoundup}
+            disabled={!salesRoundupText}
+            className="inline-flex items-center justify-center rounded-xl bg-slate-900 text-white px-3 py-2 text-xs font-semibold shadow-sm hover:bg-slate-800 disabled:opacity-60"
+            aria-label="Copy sales list to clipboard"
+            title="Copy the sales list to clipboard"
+          >
+            {copied ? 'Copied!' : 'Copy Text'}
+          </button>
+          <div className="text-xs text-slate-500 min-w-0 truncate">
+            {copyError ?? 'Copies the list shown to clipboard.'}
+          </div>
         </div>
       </div>
     </div>
