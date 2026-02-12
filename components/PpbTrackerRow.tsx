@@ -1,10 +1,24 @@
 /* eslint-disable react/no-unescaped-entities */
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Badge } from './Badge';
 import { formatNumber, formatPeso } from '@/lib/format';
-import type { PpbTracker } from '@/lib/types';
+import type { PpbTracker, PpbTrackerRow as PpbRow } from '@/lib/types';
+import { Download, X, Zap } from 'lucide-react';
+
+// Lazy import so html2canvas never touches the server bundle.
+const loadHtml2Canvas = async () => (await import('html2canvas')).default;
+
+const pct = (r: number | null | undefined) => (r == null ? '—' : `${Math.round(r * 100)}%`);
+
+const safeFile = (s: string) =>
+  s
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[^a-z0-9 _-]/gi, '')
+    .replace(/\s+/g, '_')
+    .slice(0, 80);
 
 export function PpbTrackerRow({ data }: { data: PpbTracker }) {
   const [m1, m2, m3] = data.months;
@@ -14,21 +28,43 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
 
   const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
 
-  const bucketFor = (raw: unknown): 'spartan' | 'legacy' | null => {
-    const c = norm(raw);
-    if (!c) return null;
-    if (c === 'spa' || c === 'spartan' || c === 'spartans' || c.includes('spartan')) return 'spartan';
-    if (c === 'leg' || c === 'legacy' || c.includes('legacy')) return 'legacy';
-    return null;
-  };
-
   const filteredRows = useMemo(() => {
     if (advisorFilter === 'All') return data.rows;
     const target = advisorFilter === 'Spartans' ? 'spartan' : 'legacy';
-    return data.rows.filter(r => bucketFor(r.spaLeg) === target);
+    return data.rows.filter(r => norm(r.spaLeg) === target);
   }, [advisorFilter, data.rows]);
 
+  // Jolt (advisor-specific, shareable sticky note)
+  const [joltRow, setJoltRow] = useState<PpbRow | null>(null);
+  const noteRef = useRef<HTMLDivElement | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const closeJolt = () => setJoltRow(null);
+
+  const saveJoltAsImage = async () => {
+    if (!joltRow || !noteRef.current) return;
+    setIsSaving(true);
+    try {
+      const html2canvas = await loadHtml2Canvas();
+      const canvas = await html2canvas(noteRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: null,
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `PPB-Jolt_${safeFile(joltRow.advisor)}_${safeFile(data.quarter)}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
+    <>
     <div className="rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div className="flex items-center justify-between p-3 border-b border-slate-200">
           <div className="flex items-center gap-2">
@@ -79,7 +115,22 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
               <tbody className="divide-y divide-slate-100">
                 {filteredRows.map((r) => (
                   <tr key={`ppb-${r.advisor}`}>
-                    <td className="py-2 pr-3 font-medium text-slate-800 max-w-[220px] truncate">{r.advisor}</td>
+                    <td className="py-2 pr-3 font-medium text-slate-800 max-w-[260px]">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => setJoltRow(r)}
+                          title="Open Jolt note"
+                          aria-label={`Open Jolt note for ${r.advisor}`}
+                          className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-sm shrink-0"
+                        >
+                          <Zap size={15} />
+                        </button>
+                        <span className="truncate" title={r.advisor}>
+                          {r.advisor}
+                        </span>
+                      </div>
+                    </td>
                     <td className="py-2 pr-3 text-right tabular-nums text-slate-700">{formatPeso(r.fyc)}</td>
                     <td className="py-2 pr-3 text-right tabular-nums text-slate-700">{formatNumber(r.cases)}</td>
                     <td className="py-2 pr-3 text-right tabular-nums text-slate-700">{formatNumber(r.m1Cases)}</td>
@@ -140,5 +191,111 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
           Case counts exclude Guardian variants. Guardian FYC is still included in total FYC. Projected Bonus assumes 82.5%+ persistency (100% multiplier) and ignores net adjustments.
         </div>
     </div>
+
+    {joltRow && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4"
+        onMouseDown={closeJolt}
+      >
+        <div className="max-w-full" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="relative">
+            <div
+              ref={noteRef}
+              className="w-[360px] max-w-[92vw] h-[360px] bg-yellow-100 border border-yellow-200 rounded-2xl shadow-xl p-5 overflow-hidden"
+            >
+              <div className="text-lg font-extrabold text-slate-900 leading-tight truncate" title={joltRow.advisor}>
+                {joltRow.advisor}
+              </div>
+              <div className="text-[11px] text-slate-700 mt-0.5">
+                {data.quarter} • Quarter-to-date
+              </div>
+
+              <div className="mt-3 h-px bg-slate-900/10" />
+
+              <div className="mt-3 text-sm text-slate-900 leading-snug">
+                {joltRow.totalBonusRate > 0 ? (
+                  <>
+                    Well done — you&apos;re at <span className="font-extrabold">{pct(joltRow.totalBonusRate)}</span> total bonus rate so far.
+                  </>
+                ) : (
+                  <>No bonus yet — let&apos;s get you into your first tier this quarter.</>
+                )}
+              </div>
+
+              <div className="mt-3 text-[12px] text-slate-900">
+                <div className="font-semibold">How you got here</div>
+                <ul className="mt-1 space-y-1">
+                  <li>
+                    • FYC: <span className="font-semibold">{formatPeso(joltRow.fyc)}</span> →{' '}
+                    <span className="font-semibold">{pct(joltRow.ppbRate)}</span>
+                  </li>
+                  <li>
+                    • Cases: <span className="font-semibold">{formatNumber(joltRow.cases)}</span>{' '}
+                    {joltRow.ccbRate == null ? (
+                      <span className="text-slate-600">(CCB not applicable)</span>
+                    ) : (
+                      <>
+                        → <span className="font-semibold">+{pct(joltRow.ccbRate)}</span>
+                      </>
+                    )}
+                  </li>
+                </ul>
+              </div>
+
+              <div className="mt-3 text-[12px] text-slate-900">
+                <div className="font-semibold">To reach the next level</div>
+
+                {joltRow.fycToNextBonusTier == null && joltRow.casesToNextCcbTier == null ? (
+                  <div className="mt-1 text-slate-700">You&apos;re already at the top tier for this bonus. Keep compounding.</div>
+                ) : (
+                  <div className="mt-1 space-y-1">
+                    {joltRow.fycToNextBonusTier != null && (
+                      <div>
+                        • +<span className="font-semibold">{formatPeso(joltRow.fycToNextBonusTier)}</span> FYC →{' '}
+                        <span className="font-semibold">{pct(joltRow.nextPpbRate)}</span>
+                      </div>
+                    )}
+                    {joltRow.fycToNextBonusTier != null && joltRow.casesToNextCcbTier != null && (
+                      <div className="text-slate-600 italic">and/or</div>
+                    )}
+                    {joltRow.casesToNextCcbTier != null && (
+                      <div>
+                        • +<span className="font-semibold">{formatNumber(joltRow.casesToNextCcbTier)}</span> case(s) →{' '}
+                        <span className="font-semibold">+{pct(joltRow.nextCcbRate)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 text-xs text-slate-800 italic">Godspeed ⚡</div>
+            </div>
+
+            <button
+              type="button"
+              onClick={closeJolt}
+              aria-label="Close"
+              className="absolute -top-3 -right-3 h-9 w-9 rounded-full bg-white border border-slate-200 shadow-md flex items-center justify-center hover:bg-slate-50"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={saveJoltAsImage}
+              disabled={isSaving}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold shadow-sm hover:bg-slate-800 disabled:opacity-60"
+            >
+              <Download size={16} />
+              {isSaving ? 'Saving…' : 'Save as PNG'}
+            </button>
+            <div className="text-[11px] text-slate-100/90">Tip: click outside the note to close.</div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
