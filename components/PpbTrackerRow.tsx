@@ -225,8 +225,12 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                 // (`display:-webkit-box` + `-webkit-line-clamp`) together with `overflow-hidden`.
                 // To keep the PNG looking exactly like the popup, we avoid WebKit clamping here.
                 // Instead, we allow natural wrapping and clamp by max-height (2 lines) + overflow.
-                className="text-[16px] font-extrabold text-slate-900 leading-[1.35] pr-1 overflow-hidden"
-                style={{ maxHeight: '2.7em' }}
+                className="text-[15px] font-bold text-slate-900 leading-[1.35] pr-1 overflow-hidden"
+                // Canvas safety:
+                // html2canvas can clip the very top pixels of heavy font weights when an element is also
+                // overflow-clamped. We give the title a tiny internal "headroom" during normal layout
+                // WITHOUT shifting the rest of the note by canceling it with a negative bottom margin.
+                style={{ maxHeight: '2.7em', paddingTop: '2px', marginBottom: '-2px' }}
                 title={joltRow.advisor}
               >
                 {joltRow.advisor}
