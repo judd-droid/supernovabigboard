@@ -28,6 +28,8 @@ export type SalesRoundupItem = {
   advisor: string;
   product: string;
   afyc: number;
+  // Classification from roster (used for Sales Round-up filtering)
+  spaLeg?: string;
   policyNumber?: string;
   monthApproved?: string;
 };
