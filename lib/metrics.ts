@@ -761,6 +761,157 @@ export const buildPpbTracker = (
   };
 };
 
+// Monthly Excellence Awards Badges (current month only; resets monthly)
+export const buildMonthlyExcellenceBadges = (
+  rows: SalesRow[],
+  rosterEntries: RosterEntry[],
+  rangeEnd: Date,
+  unitFilter: string | null,
+  advisorFilter: string | null,
+  rosterIndex: Map<string, RosterEntry>
+) => {
+  // Count ONLY the month that contains rangeEnd (month-to-date through rangeEnd).
+  const y = rangeEnd.getUTCFullYear();
+  const m = rangeEnd.getUTCMonth();
+  const monthStart = new Date(Date.UTC(y, m, 1));
+
+  const rangeEndEod = new Date(rangeEnd.getTime());
+  rangeEndEod.setUTCHours(23, 59, 59, 999);
+
+  const asOfMonth = `${MONTH3[m] ?? 'Mon'} ${y}`;
+
+  const getUnit = (advisorName: string) => {
+    const key = normalizeName(advisorName);
+    return (rosterIndex.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
+  };
+
+  const passesFilters = (advisorName: string) => {
+    if (advisorFilter && advisorFilter !== 'All') {
+      if (normalizeName(advisorName) !== normalizeName(advisorFilter)) return false;
+    }
+    if (unitFilter && unitFilter !== 'All') {
+      const u = getUnit(advisorName);
+      if (u !== unitFilter) return false;
+    }
+    return true;
+  };
+
+  // Aggregate approved metrics per advisor for the month-to-date window.
+  const byAdvisor = new Map<string, { advisor: string; mdrtFyp: number; cases: number; fyc: number }>();
+
+  for (const r of rows) {
+    const advisor = String(r.advisor || '').trim();
+    if (!advisor) continue;
+    if (!passesFilters(advisor)) continue;
+
+    const ad = r.dateApproved ?? (r.monthApproved ? monthApprovedToDate(r.monthApproved) : null);
+    if (!ad) continue;
+    if (ad.getTime() < monthStart.getTime()) continue;
+    if (ad.getTime() > rangeEndEod.getTime()) continue;
+
+    const key = normalizeName(advisor);
+    const cur = byAdvisor.get(key) ?? { advisor, mdrtFyp: 0, cases: 0, fyc: 0 };
+    cur.mdrtFyp += safeNumber(r.mdrtFyp);
+    cur.fyc += safeNumber(r.fyc);
+    cur.cases += safeCaseCount(r);
+    byAdvisor.set(key, cur);
+  }
+
+  const Tier = ['Silver', 'Gold', 'Diamond', 'Master'] as const;
+  type TierName = (typeof Tier)[number];
+
+  const pickTier = (value: number, thresholds: Record<TierName, number>): TierName | null => {
+    if (value >= thresholds.Master) return 'Master';
+    if (value >= thresholds.Diamond) return 'Diamond';
+    if (value >= thresholds.Gold) return 'Gold';
+    if (value >= thresholds.Silver) return 'Silver';
+    return null;
+  };
+
+  const nextTier = (tier: TierName | null): TierName => {
+    if (!tier) return 'Silver';
+    if (tier === 'Silver') return 'Gold';
+    if (tier === 'Gold') return 'Diamond';
+    return 'Master';
+  };
+
+  const buildBadge = (opts: {
+    kind: 'premiums' | 'savedLives' | 'income';
+    thresholds: Record<TierName, number>;
+    // for discrete metrics like cases
+    isDiscrete?: boolean;
+    // close threshold, default 20% remaining to next tier
+    closeRemainingRatio?: number;
+  }) => {
+    const achieved: Array<{ advisor: string; tier: TierName; value: number }> = [];
+    const close: Array<{ advisor: string; targetTier: TierName; remaining: number; value: number }> = [];
+
+    const closeRatio = opts.closeRemainingRatio ?? 0.2;
+
+    for (const a of byAdvisor.values()) {
+      const value = opts.kind === 'premiums' ? a.mdrtFyp : opts.kind === 'income' ? a.fyc : a.cases;
+      const tier = pickTier(value, opts.thresholds);
+      if (tier) {
+        achieved.push({ advisor: a.advisor, tier, value });
+      }
+
+      // Determine "close" to next tier
+      const target = nextTier(tier);
+      const targetValue = opts.thresholds[target];
+      if (value >= targetValue) continue; // already at/above
+
+      const remaining = targetValue - value;
+      if (opts.isDiscrete) {
+        // cases: "close" if within 1 case to next tier
+        if (remaining > 0 && remaining <= 1) {
+          close.push({ advisor: a.advisor, targetTier: target, remaining, value });
+        } else if (!tier) {
+          // close to Silver if at least 2 cases (3 needed)
+          const silverRemaining = opts.thresholds.Silver - value;
+          if (silverRemaining > 0 && silverRemaining <= 1) {
+            close.push({ advisor: a.advisor, targetTier: 'Silver', remaining: silverRemaining, value });
+          }
+        }
+      } else {
+        const isClose = remaining > 0 && remaining <= targetValue * closeRatio;
+        if (isClose) {
+          close.push({ advisor: a.advisor, targetTier: target, remaining, value });
+        } else if (!tier) {
+          // close to Silver if >= 80% to Silver
+          const silver = opts.thresholds.Silver;
+          if (silver > 0 && value >= silver * 0.8) {
+            close.push({ advisor: a.advisor, targetTier: 'Silver', remaining: silver - value, value });
+          }
+        }
+      }
+    }
+
+    // Sort: achieved by tier desc then value desc; close by remaining asc
+    const tierRank: Record<TierName, number> = { Silver: 1, Gold: 2, Diamond: 3, Master: 4 };
+    achieved.sort((a, b) => (tierRank[b.tier] - tierRank[a.tier]) || (b.value - a.value));
+    close.sort((a, b) => a.remaining - b.remaining);
+
+    return { achieved, close };
+  };
+
+  return {
+    asOfMonth,
+    premiums: buildBadge({
+      kind: 'premiums',
+      thresholds: { Silver: 100_000, Gold: 150_000, Diamond: 300_000, Master: 400_000 },
+    }),
+    savedLives: buildBadge({
+      kind: 'savedLives',
+      thresholds: { Silver: 3, Gold: 4, Diamond: 6, Master: 8 },
+      isDiscrete: true,
+    }),
+    income: buildBadge({
+      kind: 'income',
+      thresholds: { Silver: 35_000, Gold: 50_000, Diamond: 100_000, Master: 140_000 },
+    }),
+  };
+};
+
 const monthKey = (d: Date) => {
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, '0');

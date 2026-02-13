@@ -182,6 +182,23 @@ export type ApiResponse = {
 
   // PPB tracker (quarter snapshot based on selected range end)
   ppbTracker?: PpbTracker;
+
+  // Monthly Excellence Awards Badges (current month only; resets monthly)
+  monthlyExcellenceBadges?: {
+    asOfMonth: string; // e.g. "Feb 2026" (month that contains selected range end)
+    premiums: {
+      achieved: Array<{ advisor: string; tier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; value: number }>;
+      close: Array<{ advisor: string; targetTier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; remaining: number; value: number }>;
+    };
+    savedLives: {
+      achieved: Array<{ advisor: string; tier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; value: number }>;
+      close: Array<{ advisor: string; targetTier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; remaining: number; value: number }>;
+    };
+    income: {
+      achieved: Array<{ advisor: string; tier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; value: number }>;
+      close: Array<{ advisor: string; targetTier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; remaining: number; value: number }>;
+    };
+  };
   advisorDetail?: {
     advisor: string;
     approved: MoneyKpis;

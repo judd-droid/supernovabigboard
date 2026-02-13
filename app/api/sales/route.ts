@@ -14,6 +14,7 @@ import {
   buildSalesRoundup,
   buildConsistentMonthlyProducers,
   buildPpbTracker,
+  buildMonthlyExcellenceBadges,
 } from '@/lib/metrics';
 import type { ApiResponse, RangePreset } from '@/lib/types';
 
@@ -119,6 +120,17 @@ export async function GET(req: Request) {
     // It aggregates quarter-to-date (through the selected range end).
     const ppbTracker = buildPpbTracker(rows, rosterEntries, range.end, unit, rosterIndex, dprRows);
 
+    // Monthly Excellence Awards Badges are computed for the MOST CURRENT month only
+    // (the month that contains the selected range end), month-to-date through range end.
+    const monthlyExcellenceBadges = buildMonthlyExcellenceBadges(
+      rows,
+      rosterEntries,
+      range.end,
+      unit,
+      advisor,
+      rosterIndex
+    );
+
     const resp: ApiResponse = {
       generatedAt: new Date().toISOString(),
       filters: {
@@ -143,6 +155,7 @@ export async function GET(req: Request) {
       spartanMonitoring,
       specialLookouts,
       ppbTracker,
+      monthlyExcellenceBadges,
     };
 
     if (advisor !== 'All') {

@@ -17,6 +17,7 @@ import { ProductMix } from '@/components/ProductMix';
 import { SpartanMonitoringRow } from '@/components/SpartanMonitoringRow';
 import { SpecialLookoutsRow } from '@/components/SpecialLookoutsRow';
 import { PpbTrackerRow } from '@/components/PpbTrackerRow';
+import { MonthlyExcellenceBadgesRow } from '@/components/MonthlyExcellenceBadgesRow';
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -194,6 +195,14 @@ export default function Page() {
             </Section>
           ) : null}
 
+          <Section title="Advisor production overview">
+            <AdvisorStatusPanel
+              producing={data.producingAdvisors.producing}
+              pending={data.producingAdvisors.pending}
+              nonProducing={data.producingAdvisors.nonProducing}
+            />
+          </Section>
+
           <Section title="Pipeline signals">
             <div className="grid gap-4 md:grid-cols-4">
               <KpiCard title="Submitted FYP" value={formatPeso(data.team.submitted.fyp)} icon={<Clock3 size={18} />} />
@@ -203,13 +212,11 @@ export default function Page() {
             </div>
           </Section>
 
-          <Section title="Advisor production overview">
-            <AdvisorStatusPanel
-              producing={data.producingAdvisors.producing}
-              pending={data.producingAdvisors.pending}
-              nonProducing={data.producingAdvisors.nonProducing}
-            />
-          </Section>
+          {tab === 'team' && data.monthlyExcellenceBadges ? (
+            <Section title="Monthly Excellence Awards Badges">
+              <MonthlyExcellenceBadgesRow data={data.monthlyExcellenceBadges} />
+            </Section>
+          ) : null}
 
           <div className="grid gap-4 lg:grid-cols-3">
             <Section title="Trend" >
