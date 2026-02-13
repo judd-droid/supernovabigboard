@@ -1,4 +1,5 @@
 import type { ApiResponse } from '@/lib/types';
+import { CheckCircle2, Target } from 'lucide-react';
 
 type BadgeBlock = {
   achieved: Array<{ advisor: string; tier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; value: number }>;
@@ -42,7 +43,10 @@ function BadgeCard({
 
       <div className="mt-3 grid gap-3">
         <div>
-          <div className="text-xs font-semibold text-slate-600 pb-1 border-b border-slate-200">Hit</div>
+          <div className="flex items-center gap-1 text-xs font-semibold text-slate-600 pb-1 border-b border-slate-200">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+            <span>Hit</span>
+          </div>
           {achieved.length ? (
             <div className="mt-1 space-y-1">
               {achieved.map((a) => (
@@ -62,11 +66,11 @@ function BadgeCard({
           )}
         </div>
 
-        {/* Separator between Hit and Close blocks */}
-        <div className="border-t border-slate-200" />
-
         <div>
-          <div className="text-xs font-semibold text-slate-600 pb-1 border-b border-slate-200">Close</div>
+          <div className="flex items-center gap-1 text-xs font-semibold text-slate-600 pb-1 border-b border-slate-200">
+            <Target className="h-3.5 w-3.5 text-amber-600" aria-hidden="true" />
+            <span>Close</span>
+          </div>
           {close.length ? (
             <div className="mt-1 space-y-1">
               {close.map((c) => (
