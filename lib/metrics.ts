@@ -764,7 +764,7 @@ export const buildPpbTracker = (
 // Monthly Excellence Awards Badges (current month only; resets monthly)
 export const buildMonthlyExcellenceBadges = (
   rows: SalesRow[],
-  rosterEntries: RosterEntry[],
+  _rosterEntries: RosterEntry[],
   rangeEnd: Date,
   unitFilter: string | null,
   advisorFilter: string | null,
