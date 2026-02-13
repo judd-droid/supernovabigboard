@@ -42,7 +42,7 @@ function BadgeCard({
 
       <div className="mt-3 grid gap-3">
         <div>
-          <div className="text-xs font-semibold text-slate-600">Hit</div>
+          <div className="text-xs font-semibold text-slate-600 pb-1 border-b border-slate-200">Hit</div>
           {achieved.length ? (
             <div className="mt-1 space-y-1">
               {achieved.map((a) => (
@@ -62,8 +62,11 @@ function BadgeCard({
           )}
         </div>
 
+        {/* Separator between Hit and Close blocks */}
+        <div className="border-t border-slate-200" />
+
         <div>
-          <div className="text-xs font-semibold text-slate-600">Close</div>
+          <div className="text-xs font-semibold text-slate-600 pb-1 border-b border-slate-200">Close</div>
           {close.length ? (
             <div className="mt-1 space-y-1">
               {close.map((c) => (
