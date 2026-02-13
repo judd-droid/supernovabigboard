@@ -9,7 +9,8 @@ type BadgeBlock = {
 const tierPill = (tier: string) => {
   const base = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium border';
   // Master should be purple (not black)
-  if (tier === 'Master') return `${base} bg-purple-600 text-white border-purple-600`;
+  // Match the Silver/Gold/Diamond pill style (soft bg + colored text + subtle border)
+  if (tier === 'Master') return `${base} bg-purple-50 text-purple-700 border-purple-200`;
   if (tier === 'Diamond') return `${base} bg-sky-50 text-sky-700 border-sky-200`;
   if (tier === 'Gold') return `${base} bg-amber-50 text-amber-700 border-amber-200`;
   return `${base} bg-slate-50 text-slate-700 border-slate-200`;
