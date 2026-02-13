@@ -56,10 +56,11 @@ function BadgeCard({
             <Info className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
             <span>Guide</span>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
+          {/* 2 columns (2 rows each): left = Master/Diamond, right = Gold/Silver */}
+          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
             <div className="flex items-center gap-1">
-              <span className={tierPill('Silver')}>Silver</span>
-              <span className="text-xs font-semibold text-slate-800">{valuePrefix ?? ''}{formatCompact(guide.Silver)}</span>
+              <span className={tierPill('Master')}>Master</span>
+              <span className="text-xs font-semibold text-slate-800">{valuePrefix ?? ''}{formatCompact(guide.Master)}</span>
             </div>
             <div className="flex items-center gap-1">
               <span className={tierPill('Gold')}>Gold</span>
@@ -70,8 +71,8 @@ function BadgeCard({
               <span className="text-xs font-semibold text-slate-800">{valuePrefix ?? ''}{formatCompact(guide.Diamond)}</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className={tierPill('Master')}>Master</span>
-              <span className="text-xs font-semibold text-slate-800">{valuePrefix ?? ''}{formatCompact(guide.Master)}</span>
+              <span className={tierPill('Silver')}>Silver</span>
+              <span className="text-xs font-semibold text-slate-800">{valuePrefix ?? ''}{formatCompact(guide.Silver)}</span>
             </div>
           </div>
         </div>
