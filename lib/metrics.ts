@@ -443,6 +443,20 @@ const safeCaseCount = (r: SalesRow) => {
   return c;
 };
 
+// Normalize numeric inputs that may come in as strings (e.g., "148,872" or "₱148,872").
+const safeNumber = (v: unknown): number => {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+  if (typeof v === 'string') {
+    const cleaned = v.replace(/[^0-9.+-]/g, '');
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : 0;
+  }
+  // best-effort fallback
+  const n = Number(v as any);
+  return Number.isFinite(n) ? n : 0;
+};
+
 const isGuardianProduct = (p: string) => /guardian/i.test(p);
 
 const getApprovedDateForPpb = (r: SalesRow): Date | null => {
@@ -764,7 +778,7 @@ export const buildPpbTracker = (
 // Monthly Excellence Awards Badges (current month only; resets monthly)
 export const buildMonthlyExcellenceBadges = (
   rows: SalesRow[],
-  _rosterEntries: RosterEntry[],
+  rosterEntries: RosterEntry[],
   rangeEnd: Date,
   unitFilter: string | null,
   advisorFilter: string | null,
