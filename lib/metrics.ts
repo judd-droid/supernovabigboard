@@ -404,7 +404,12 @@ export const buildSalesRoundup = (
     return (rosterIndex.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
   };
 
-  const out: Array<{ advisor: string; product: string; afyc: number; policyNumber?: string; monthApproved?: string }> = [];
+  const getSpaLeg = (advisorName: string) => {
+    const key = normalizeName(advisorName);
+    return (rosterIndex.get(key)?.spaLeg || '').trim();
+  };
+
+  const out: Array<{ advisor: string; product: string; afyc: number; spaLeg?: string; policyNumber?: string; monthApproved?: string }> = [];
 
   for (const r of rows) {
     const advisor = (r.advisor || '').trim();
@@ -420,6 +425,7 @@ export const buildSalesRoundup = (
       advisor,
       product,
       afyc: r.afyc ?? 0,
+      spaLeg: getSpaLeg(advisor) || undefined,
       policyNumber: r.policyNumber,
       monthApproved: r.monthApproved,
     });

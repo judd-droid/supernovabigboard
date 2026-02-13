@@ -63,19 +63,35 @@ export function SpecialLookoutsRow({
   const { threePlus, watch2, watch1 } = consistentMonthlyProducers;
   const asOfDisplay = (consistentMonthlyProducers.asOfMonth ?? '').replace('-', '/');
 
+  type SalesAdvisorFilter = 'All' | 'Spartans' | 'Legacy';
+  const [salesAdvisorFilter, setSalesAdvisorFilter] = useState<SalesAdvisorFilter>('All');
+
+  const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
+
+  const filteredSalesRoundup = useMemo(() => {
+    if (!salesRoundup) return [];
+    if (salesAdvisorFilter === 'All') return salesRoundup;
+    const want = salesAdvisorFilter === 'Spartans' ? 'spa' : 'leg';
+    return salesRoundup.filter((s) => {
+      const n = norm(s.spaLeg);
+      if (!n) return false;
+      return n.startsWith(want);
+    });
+  }, [salesAdvisorFilter, salesRoundup]);
+
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
 
   const salesRoundupText = useMemo(() => {
-    if (!salesRoundup || salesRoundup.length === 0) return '';
-    return salesRoundup
+    if (!filteredSalesRoundup || filteredSalesRoundup.length === 0) return '';
+    return filteredSalesRoundup
       .map((s) => {
         const showAmt = (s.afyc ?? 0) >= 1000;
         const left = `${s.advisor ?? ''} — ${s.product ?? ''}`.trim();
         return showAmt ? `${left} — ${formatPeso(s.afyc)}` : left;
       })
       .join('\n');
-  }, [salesRoundup]);
+  }, [filteredSalesRoundup]);
 
   const copySalesRoundup = async () => {
     if (!salesRoundupText) return;
@@ -176,11 +192,11 @@ export function SpecialLookoutsRow({
           <div className="text-xs text-slate-400">AFYC</div>
         </div>
         <div className="max-h-[320px] overflow-auto p-3">
-          {salesRoundup.length === 0 ? (
+          {filteredSalesRoundup.length === 0 ? (
             <div className="text-sm text-slate-500">No approved sales in range.</div>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {salesRoundup.map((s, idx) => {
+              {filteredSalesRoundup.map((s, idx) => {
                 const show = (s.afyc ?? 0) >= 1000;
                 const key = `${s.policyNumber ?? ''}-${idx}`;
                 return (
@@ -212,8 +228,22 @@ export function SpecialLookoutsRow({
           >
             {copied ? 'Copied!' : 'Copy Text'}
           </button>
-          <div className="text-xs text-slate-500 min-w-0 truncate">
-            {copyError ?? 'Copies the list shown to clipboard.'}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center rounded-xl bg-slate-100 p-1">
+              {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
+                <button
+                  key={`sales-roundup-filter-${v}`}
+                  onClick={() => setSalesAdvisorFilter(v)}
+                  className={`px-3 py-1.5 text-xs rounded-lg ${salesAdvisorFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
+                  aria-label={`Show ${v} advisors in Sales Round-up`}
+                  title={`Show ${v} advisors`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            {/* Screen-reader only status for copy errors */}
+            <div className="sr-only" aria-live="polite">{copyError ?? (copied ? 'Copied' : '')}</div>
           </div>
         </div>
       </div>
