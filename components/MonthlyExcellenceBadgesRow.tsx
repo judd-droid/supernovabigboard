@@ -1,5 +1,5 @@
 import type { ApiResponse } from '@/lib/types';
-import { CheckCircle2, Target } from 'lucide-react';
+import { CheckCircle2, Info, Target } from 'lucide-react';
 
 type BadgeBlock = {
   achieved: Array<{ advisor: string; tier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; value: number }>;
@@ -8,11 +8,18 @@ type BadgeBlock = {
 
 const tierPill = (tier: string) => {
   const base = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium border';
-  if (tier === 'Master') return `${base} bg-slate-900 text-white border-slate-900`;
+  // Master should be purple (not black)
+  if (tier === 'Master') return `${base} bg-purple-600 text-white border-purple-600`;
   if (tier === 'Diamond') return `${base} bg-sky-50 text-sky-700 border-sky-200`;
   if (tier === 'Gold') return `${base} bg-amber-50 text-amber-700 border-amber-200`;
   return `${base} bg-slate-50 text-slate-700 border-slate-200`;
 };
+
+const GUIDE_THRESHOLDS = {
+  premiums: { Silver: 100_000, Gold: 150_000, Diamond: 300_000, Master: 400_000 },
+  savedLives: { Silver: 3, Gold: 4, Diamond: 6, Master: 8 },
+  income: { Silver: 35_000, Gold: 50_000, Diamond: 100_000, Master: 140_000 },
+} as const;
 
 const formatCompact = (n: number) => {
   if (!Number.isFinite(n)) return '0';
@@ -25,11 +32,13 @@ function BadgeCard({
   unitLabel,
   block,
   valuePrefix,
+  guide,
 }: {
   title: string;
   unitLabel: string;
   block: BadgeBlock;
   valuePrefix?: string;
+  guide: { Silver: number; Gold: number; Diamond: number; Master: number };
 }) {
   const achieved = block.achieved.slice(0, 8);
   const close = block.close.slice(0, 8);
@@ -42,6 +51,31 @@ function BadgeCard({
       </div>
 
       <div className="mt-3 grid gap-3">
+        <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2">
+          <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-600">
+            <Info className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
+            <span>Guide</span>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1">
+              <span className={tierPill('Silver')}>Silver</span>
+              <span className="text-xs font-semibold text-slate-800">{valuePrefix ?? ''}{formatCompact(guide.Silver)}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className={tierPill('Gold')}>Gold</span>
+              <span className="text-xs font-semibold text-slate-800">{valuePrefix ?? ''}{formatCompact(guide.Gold)}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className={tierPill('Diamond')}>Diamond</span>
+              <span className="text-xs font-semibold text-slate-800">{valuePrefix ?? ''}{formatCompact(guide.Diamond)}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className={tierPill('Master')}>Master</span>
+              <span className="text-xs font-semibold text-slate-800">{valuePrefix ?? ''}{formatCompact(guide.Master)}</span>
+            </div>
+          </div>
+        </div>
+
         <div>
           <div className="flex items-center gap-1 text-xs font-semibold text-slate-600 pb-1 border-b border-slate-200">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
@@ -104,17 +138,20 @@ export function MonthlyExcellenceBadgesRow({
         unitLabel={data.asOfMonth}
         block={data.premiums}
         valuePrefix="₱"
+        guide={GUIDE_THRESHOLDS.premiums}
       />
       <BadgeCard
         title="Saved lives (cases)"
         unitLabel={data.asOfMonth}
         block={data.savedLives}
+        guide={GUIDE_THRESHOLDS.savedLives}
       />
       <BadgeCard
         title="Income (FYC)"
         unitLabel={data.asOfMonth}
         block={data.income}
         valuePrefix="₱"
+        guide={GUIDE_THRESHOLDS.income}
       />
     </div>
   );
