@@ -254,7 +254,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
               </div>
 
               <div className="mt-3 text-[11px] text-slate-900">
-                <div className="font-semibold text-[11px]">How you got here</div>
+                <div className="font-semibold text-[11px]">How you got here:</div>
                 <ul className="mt-1 space-y-1">
                   <li>
                     • FYC: <span className="font-extrabold text-[12px]">{formatPeso(joltRow.fyc)}</span> →{' '}
@@ -274,7 +274,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
               </div>
 
               <div className="mt-3 text-[11px] text-slate-900">
-                <div className="font-semibold text-[11px]">To reach the next level</div>
+                <div className="font-semibold text-[11px]">To reach the next level:</div>
 
                 {joltRow.fycToNextBonusTier == null && joltRow.casesToNextCcbTier == null ? (
                   <div className="mt-1 text-slate-700">You&apos;re already at the top tier for this bonus. Keep compounding.</div>
@@ -298,8 +298,6 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                   </div>
                 )}
               </div>
-
-                <div className="mt-4 text-[10px] text-slate-800 italic">Godspeed ⚡</div>
               </div>
 
               {/* Footer + stamp (captured in PNG export)
