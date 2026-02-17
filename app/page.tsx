@@ -94,37 +94,60 @@ export default function Page() {
 
   const approvedPerformanceSummary = useMemo(() => {
     if (!data) return '';
-    const header = `Approved Performance (${presetLabel[preset]} · ${fmtDateRange(data.filters.start, data.filters.end)})`;
+    const header = `## Approved Performance (${presetLabel[preset]} · ${fmtDateRange(data.filters.start, data.filters.end)})`;
     return [
       header,
-      `Approved FYC: ${formatPeso(data.team.approved.fyc)}`,
-      `Approved FYP: ${formatPeso(data.team.approved.fyp)}`,
-      `Approved ANP: ${formatPeso(data.team.approved.anp)}`,
-      `Approved cases: ${formatNumber(data.team.approved.caseCount)}`,
+      '',
+      `- Approved FYC: ${formatPeso(data.team.approved.fyc)}`,
+      `- Approved FYP: ${formatPeso(data.team.approved.fyp)}`,
+      `- Approved ANP: ${formatPeso(data.team.approved.anp)}`,
+      `- Approved cases: ${formatNumber(data.team.approved.caseCount)}`,
     ].join('\n');
   }, [data, preset]);
 
   const advisorOverviewSummary = useMemo(() => {
     if (!data) return '';
-    const header = `Advisor Production Overview (${advisorOverviewFilter}) (${presetLabel[preset]} · ${fmtDateRange(data.filters.start, data.filters.end)})`;
-    const block = (title: string, items: AdvisorStatus[], getRight: (a: AdvisorStatus) => string) => {
-      if (!items.length) return `${title}: None`;
-      return [`${title} (${items.length})`, ...items.map(a => `- ${a.advisor}${getRight(a) ? ` — ${getRight(a)}` : ''}`)].join('\n');
+    const header = `## Advisor Production Overview (${advisorOverviewFilter}) (${presetLabel[preset]} · ${fmtDateRange(data.filters.start, data.filters.end)})`;
+
+    const producingSet = new Set(filteredProducing.map(a => (a.advisor ?? '').trim().toLowerCase()));
+
+    const listWithAmounts = (items: AdvisorStatus[], getRight: (a: AdvisorStatus) => string, wrapIfAlsoProducing = false) => {
+      if (!items.length) return ['- None'];
+      return items.map(a => {
+        const name = (a.advisor ?? '').trim();
+        const key = name.toLowerCase();
+        const shownName = wrapIfAlsoProducing && producingSet.has(key) ? `(${name})` : name;
+        const amt = getRight(a);
+        return `- ${shownName}${amt ? ` — ${amt}` : ''}`;
+      });
     };
+
+    const listNamesOnly = (items: AdvisorStatus[]) => {
+      if (!items.length) return ['- None'];
+      return items.map(a => `- ${(a.advisor ?? '').trim()}`);
+    };
+
     return [
       header,
-      block('Producing (Approved FYC)', filteredProducing, (a) => formatPeso(a.approved.fyc)),
       '',
-      block('Pending (Pending FYC)', filteredPending, (a) => formatPeso(a.open.fyc)),
+      `### Producing (${filteredProducing.length})`,
       '',
-      block('Non-Producing', filteredNonProducing, () => ''),
+      ...listWithAmounts(filteredProducing, (a) => formatPeso(a.approved.fyc)),
+      '',
+      `### Pending (${filteredPending.length})`,
+      '',
+      ...listWithAmounts(filteredPending, (a) => formatPeso(a.open.fyc), true),
+      '',
+      `### Non-Producing (${filteredNonProducing.length})`,
+      '',
+      ...listNamesOnly(filteredNonProducing),
     ].join('\n');
   }, [advisorOverviewFilter, data, filteredNonProducing, filteredPending, filteredProducing, preset]);
 
   const monthlyBadgesSummary = useMemo(() => {
     if (!data?.monthlyExcellenceBadges) return '';
     const d = data.monthlyExcellenceBadges;
-    const header = `Monthly Excellence Awards Badges (Counting: ${d.asOfMonth}) (${badgesFilter})`;
+    const header = `## Monthly Excellence Awards Badges (Counting: ${d.asOfMonth}) (${badgesFilter})`;
     const guide = {
       premiums: ['Master ₱400,000', 'Diamond ₱300,000', 'Gold ₱150,000', 'Silver ₱100,000'],
       savedLives: ['Master 8', 'Diamond 6', 'Gold 4', 'Silver 3'],
@@ -136,7 +159,7 @@ export default function Page() {
       const want = badgesFilter === 'Spartans' ? 'spartan' : 'legacy';
       return arr.filter((r) => norm(r.spaLeg) === want);
     };
-    const block = (title: string, b: any, guideLines: string[], isCases = false) => {
+    const block = (title: string, b: any, isCases = false) => {
       const achieved = filter(b.achieved ?? []);
       const close = filter(b.close ?? []);
       const hitLines = achieved.length
@@ -146,22 +169,25 @@ export default function Page() {
         ? close.map((c: any) => `- ${c.advisor} — ${c.targetTier} (+${isCases ? c.remaining : formatPeso(c.remaining)})`)
         : ['- None'];
       return [
-        `${title}`,
-        `Guide: ${guideLines.join(' | ')}`,
-        `Hit:`,
+        `### ${title}`,
+        '',
+        'Hit:',
+        '',
         ...hitLines,
-        `Close:`,
+        '',
+        'Close:',
+        '',
         ...closeLines,
       ].join('\n');
     };
     return [
       header,
       '',
-      block('Premiums (MDRT FYP)', d.premiums, guide.premiums, false),
+      block('Premiums (MDRT FYP)', d.premiums, false),
       '',
-      block('Saved lives (cases)', d.savedLives, guide.savedLives, true),
+      block('Saved Lives (cases)', d.savedLives, true),
       '',
-      block('Income (FYC)', d.income, guide.income, false),
+      block('Income (FYC)', d.income, false),
     ].join('\n');
   }, [badgesFilter, data?.monthlyExcellenceBadges]);
 

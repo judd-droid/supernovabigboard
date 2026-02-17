@@ -95,24 +95,23 @@ export function SpecialLookoutsRow({
   }, [filteredSalesRoundup]);
 
   const cmpSummaryText = useMemo(() => {
-    const header = `CMP as of ${asOfDisplay}`;
+    const header = `## CMP as of ${asOfDisplay}`;
     const sections = [
       { title: '3+ Months CMP', rows: threePlus },
       { title: '2 Months CMP', rows: watch2 },
       { title: '1 Month CMP', rows: watch1 },
     ];
-    const lines: string[] = [header];
+    const lines: string[] = [header, ''];
     for (const s of sections) {
       lines.push('');
       lines.push(`${s.title} (${s.rows.length})`);
+      lines.push('');
       if (s.rows.length === 0) {
         lines.push('- None');
       } else {
         for (const r of s.rows) lines.push(`- ${r.advisor} — ${r.streakMonths} mo`);
       }
     }
-    lines.push('');
-    lines.push('Rule: consecutive months with ≥1 approved case.');
     return lines.join('\n');
   }, [asOfDisplay, threePlus, watch1, watch2]);
 

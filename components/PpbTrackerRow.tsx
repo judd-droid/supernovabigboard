@@ -36,7 +36,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
   }, [advisorFilter, data.rows]);
 
   const summaryText = useMemo(() => {
-    const header = `PPB Tracker (${advisorFilter}) — ${data.quarter}`;
+    const header = `## PPB Tracker (${advisorFilter}) — ${data.quarter}`;
     const cols = ['Advisor', 'FYC', 'Cases', 'Total Bonus', 'PPB', 'CCB', 'Projected'];
     const lines = filteredRows.map((r) => {
       return [
@@ -49,7 +49,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
         r.projectedBonus == null ? '—' : formatPeso(r.projectedBonus),
       ].join(' | ');
     });
-    return [header, cols.join(' | '), ...lines].join('\n');
+    return [header, '', cols.join(' | '), ...lines].join('\n');
   }, [advisorFilter, data.quarter, filteredRows]);
 
   // Jolt (advisor-specific, shareable sticky note)
