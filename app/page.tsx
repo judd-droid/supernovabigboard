@@ -56,6 +56,7 @@ export default function Page() {
   const [customEnd, setCustomEnd] = useState('');
   const [badgesFilter, setBadgesFilter] = useState<'All' | 'Spartans' | 'Legacy'>('All');
   const [advisorOverviewFilter, setAdvisorOverviewFilter] = useState<'All' | 'Spartans' | 'Legacy'>('All');
+  const [mdrtFilter, setMdrtFilter] = useState<'All' | 'Spartans' | 'Legacy'>('All');
 
   const effectiveAdvisor = tab === 'advisor' ? advisor : 'All';
 
@@ -179,6 +180,28 @@ export default function Page() {
       block('Income (FYC)', d.income, false),
     ].join('\n');
   }, [badgesFilter, data?.monthlyExcellenceBadges]);
+
+  const mdrtSummaryText = useMemo(() => {
+    if (!data?.mdrtTracker) return '';
+    const d = data.mdrtTracker;
+    const target = d.targetPremium;
+    const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
+    const rows = mdrtFilter === 'All'
+      ? d.rows
+      : d.rows.filter(r => norm(r.spaLeg) === (mdrtFilter === 'Spartans' ? 'spartan' : 'legacy'));
+
+    const header = `## MDRT Tracker (YTD · as of ${d.asOf}) (${mdrtFilter})`;
+    const meta = `- Target (Premium): ${formatPeso(target)}`;
+    const cols = ['Advisor', 'YTD MDRT FYP', 'Balance to MDRT', 'Status'];
+    const lines = rows.map((r) => {
+      const achievedMdrt = r.mdrtFyp >= target;
+      const status = achievedMdrt
+        ? `Qualified (COT bal ${formatPeso(r.balanceToCot ?? 0)}; TOT bal ${formatPeso(r.balanceToTot ?? 0)})`
+        : 'Not yet';
+      return [r.advisor, formatPeso(r.mdrtFyp), formatPeso(r.balanceToMdrt), status].join(' | ');
+    });
+    return [header, '', meta, '', cols.join(' | '), ...lines].join('\n');
+  }, [data?.mdrtTracker, mdrtFilter]);
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6">
@@ -403,9 +426,31 @@ export default function Page() {
                 </div>
               </Section>
             ) : (
-              <Section title="MDRT Tracker">
+              <Section
+                title="MDRT Tracker"
+                right={
+                  <div className="flex items-center gap-2">
+                    <CopySummaryButton
+                      getText={() => mdrtSummaryText}
+                      title="Copy MDRT Tracker summary"
+                      ariaLabel="Copy MDRT Tracker text summary to clipboard"
+                    />
+                    <div className="flex items-center rounded-xl bg-slate-100 p-1">
+                      {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
+                        <button
+                          key={`mdrt-filter-${v}`}
+                          onClick={() => setMdrtFilter(v)}
+                          className={`px-3 py-1.5 text-xs rounded-lg ${mdrtFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                }
+              >
                 {data.mdrtTracker ? (
-                  <MdrtTracker data={data.mdrtTracker} />
+                  <MdrtTracker data={data.mdrtTracker} advisorFilter={mdrtFilter} />
                 ) : (
                   <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-4 text-slate-500">
                     No data
