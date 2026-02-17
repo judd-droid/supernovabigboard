@@ -187,16 +187,16 @@ export type ApiResponse = {
   monthlyExcellenceBadges?: {
     asOfMonth: string; // e.g. "Feb 2026" (month that contains selected range end)
     premiums: {
-      achieved: Array<{ advisor: string; tier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; value: number }>;
-      close: Array<{ advisor: string; targetTier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; remaining: number; value: number }>;
+      achieved: Array<{ advisor: string; spaLeg?: string; tier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; value: number }>;
+      close: Array<{ advisor: string; spaLeg?: string; targetTier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; remaining: number; value: number }>;
     };
     savedLives: {
-      achieved: Array<{ advisor: string; tier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; value: number }>;
-      close: Array<{ advisor: string; targetTier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; remaining: number; value: number }>;
+      achieved: Array<{ advisor: string; spaLeg?: string; tier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; value: number }>;
+      close: Array<{ advisor: string; spaLeg?: string; targetTier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; remaining: number; value: number }>;
     };
     income: {
-      achieved: Array<{ advisor: string; tier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; value: number }>;
-      close: Array<{ advisor: string; targetTier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; remaining: number; value: number }>;
+      achieved: Array<{ advisor: string; spaLeg?: string; tier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; value: number }>;
+      close: Array<{ advisor: string; spaLeg?: string; targetTier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; remaining: number; value: number }>;
     };
   };
   advisorDetail?: {

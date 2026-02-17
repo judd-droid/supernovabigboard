@@ -778,7 +778,7 @@ export const buildPpbTracker = (
 // Monthly Excellence Awards Badges (current month only; resets monthly)
 export const buildMonthlyExcellenceBadges = (
   rows: SalesRow[],
-  rosterEntries: RosterEntry[],
+  _rosterEntries: RosterEntry[],
   rangeEnd: Date,
   unitFilter: string | null,
   advisorFilter: string | null,
@@ -811,7 +811,12 @@ export const buildMonthlyExcellenceBadges = (
   };
 
   // Aggregate approved metrics per advisor for the month-to-date window.
-  const byAdvisor = new Map<string, { advisor: string; mdrtFyp: number; cases: number; fyc: number }>();
+  const getSpaLeg = (advisorName: string) => {
+    const key = normalizeName(advisorName);
+    return (rosterIndex.get(key)?.spaLeg || '').trim();
+  };
+
+  const byAdvisor = new Map<string, { advisor: string; spaLeg?: string; mdrtFyp: number; cases: number; fyc: number }>();
 
   for (const r of rows) {
     const advisor = String(r.advisor || '').trim();
@@ -824,7 +829,7 @@ export const buildMonthlyExcellenceBadges = (
     if (ad.getTime() > rangeEndEod.getTime()) continue;
 
     const key = normalizeName(advisor);
-    const cur = byAdvisor.get(key) ?? { advisor, mdrtFyp: 0, cases: 0, fyc: 0 };
+    const cur = byAdvisor.get(key) ?? { advisor, spaLeg: getSpaLeg(advisor), mdrtFyp: 0, cases: 0, fyc: 0 };
     cur.mdrtFyp += safeNumber(r.mdrtFyp);
     cur.fyc += safeNumber(r.fyc);
     cur.cases += safeCaseCount(r);
@@ -857,8 +862,8 @@ export const buildMonthlyExcellenceBadges = (
     // close threshold, default 20% remaining to next tier
     closeRemainingRatio?: number;
   }) => {
-    const achieved: Array<{ advisor: string; tier: TierName; value: number }> = [];
-    const close: Array<{ advisor: string; targetTier: TierName; remaining: number; value: number }> = [];
+    const achieved: Array<{ advisor: string; spaLeg?: string; tier: TierName; value: number }> = [];
+    const close: Array<{ advisor: string; spaLeg?: string; targetTier: TierName; remaining: number; value: number }> = [];
 
     const closeRatio = opts.closeRemainingRatio ?? 0.2;
 
@@ -866,7 +871,7 @@ export const buildMonthlyExcellenceBadges = (
       const value = opts.kind === 'premiums' ? a.mdrtFyp : opts.kind === 'income' ? a.fyc : a.cases;
       const tier = pickTier(value, opts.thresholds);
       if (tier) {
-        achieved.push({ advisor: a.advisor, tier, value });
+        achieved.push({ advisor: a.advisor, spaLeg: a.spaLeg, tier, value });
       }
 
       // Determine "close" to next tier
@@ -878,23 +883,23 @@ export const buildMonthlyExcellenceBadges = (
       if (opts.isDiscrete) {
         // cases: "close" if within 1 case to next tier
         if (remaining > 0 && remaining <= 1) {
-          close.push({ advisor: a.advisor, targetTier: target, remaining, value });
+          close.push({ advisor: a.advisor, spaLeg: a.spaLeg, targetTier: target, remaining, value });
         } else if (!tier) {
           // close to Silver if at least 2 cases (3 needed)
           const silverRemaining = opts.thresholds.Silver - value;
           if (silverRemaining > 0 && silverRemaining <= 1) {
-            close.push({ advisor: a.advisor, targetTier: 'Silver', remaining: silverRemaining, value });
+            close.push({ advisor: a.advisor, spaLeg: a.spaLeg, targetTier: 'Silver', remaining: silverRemaining, value });
           }
         }
       } else {
         const isClose = remaining > 0 && remaining <= targetValue * closeRatio;
         if (isClose) {
-          close.push({ advisor: a.advisor, targetTier: target, remaining, value });
+          close.push({ advisor: a.advisor, spaLeg: a.spaLeg, targetTier: target, remaining, value });
         } else if (!tier) {
           // close to Silver if >= 80% to Silver
           const silver = opts.thresholds.Silver;
           if (silver > 0 && value >= silver * 0.8) {
-            close.push({ advisor: a.advisor, targetTier: 'Silver', remaining: silver - value, value });
+            close.push({ advisor: a.advisor, spaLeg: a.spaLeg, targetTier: 'Silver', remaining: silver - value, value });
           }
         }
       }

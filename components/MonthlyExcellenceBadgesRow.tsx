@@ -1,9 +1,26 @@
+/* eslint-disable react/no-unescaped-entities */
+'use client';
+
+import { useMemo, useState } from 'react';
 import type { ApiResponse } from '@/lib/types';
 import { CheckCircle2, Info, Target } from 'lucide-react';
 
 type BadgeBlock = {
-  achieved: Array<{ advisor: string; tier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; value: number }>;
-  close: Array<{ advisor: string; targetTier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; remaining: number; value: number }>;
+  achieved: Array<{ advisor: string; spaLeg?: string; tier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; value: number }>;
+  close: Array<{ advisor: string; spaLeg?: string; targetTier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; remaining: number; value: number }>;
+};
+
+type BadgeFilter = 'All' | 'Spartans' | 'Legacy';
+
+const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
+
+const filterBlock = (block: any, advisorFilter: BadgeFilter) => {
+  if (advisorFilter === 'All') return block;
+  const target = advisorFilter === 'Spartans' ? 'spartan' : 'legacy';
+  return {
+    achieved: (block.achieved ?? []).filter((r: any) => norm(r.spaLeg) === target),
+    close: (block.close ?? []).filter((r: any) => norm(r.spaLeg) === target),
+  };
 };
 
 const tierPill = (tier: string) => {
@@ -133,28 +150,54 @@ export function MonthlyExcellenceBadgesRow({
 }: {
   data: NonNullable<ApiResponse['monthlyExcellenceBadges']>;
 }) {
+  const [advisorFilter, setAdvisorFilter] = useState<BadgeFilter>('All');
+
+  const filtered = useMemo(() => {
+    return {
+      premiums: filterBlock(data.premiums, advisorFilter),
+      savedLives: filterBlock(data.savedLives, advisorFilter),
+      income: filterBlock(data.income, advisorFilter),
+    };
+  }, [advisorFilter, data.income, data.premiums, data.savedLives]);
+
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <BadgeCard
+    <div className="grid gap-3">
+      <div className="flex items-center justify-end">
+        <div className="flex items-center rounded-xl bg-slate-100 p-1">
+          {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
+            <button
+              key={`meab-filter-${v}`}
+              onClick={() => setAdvisorFilter(v)}
+              className={`px-3 py-1.5 text-xs rounded-lg ${advisorFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <BadgeCard
         title="Premiums (MDRT FYP)"
         unitLabel={data.asOfMonth}
-        block={data.premiums}
+        block={filtered.premiums}
         valuePrefix="₱"
         guide={GUIDE_THRESHOLDS.premiums}
-      />
-      <BadgeCard
+        />
+        <BadgeCard
         title="Saved lives (cases)"
         unitLabel={data.asOfMonth}
-        block={data.savedLives}
+        block={filtered.savedLives}
         guide={GUIDE_THRESHOLDS.savedLives}
-      />
-      <BadgeCard
+        />
+        <BadgeCard
         title="Income (FYC)"
         unitLabel={data.asOfMonth}
-        block={data.income}
+        block={filtered.income}
         valuePrefix="₱"
         guide={GUIDE_THRESHOLDS.income}
-      />
+        />
+      </div>
     </div>
   );
 }
