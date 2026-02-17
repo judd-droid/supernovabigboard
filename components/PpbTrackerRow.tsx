@@ -242,6 +242,9 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                 {joltRow.totalBonusRate > 0 ? (
                   <>
                     Well done — you&apos;re at <span className="font-extrabold">{pct(joltRow.totalBonusRate)}</span> total bonus rate so far.
+                    {joltRow.projectedBonus != null && joltRow.projectedBonus > 0 ? (
+                      <> Projected PPB Bonus is <span className="font-extrabold">{formatPeso(joltRow.projectedBonus)}</span>.</>
+                    ) : null}
                   </>
                 ) : (
                   <>No bonus yet — let&apos;s get you into your first tier.</>
@@ -299,8 +302,8 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
 
               {/* Footer + stamp (captured in PNG export)
                   Slight upward nudge to visually align footer text with the stamp bottom. */}
-              <div className="absolute bottom-4 left-5 right-16 -translate-y-1 text-[8px] leading-snug text-slate-700/90">
-                Stats are based on Supernova records. For the most accurate, up-to-date stats, refer to official trackers and your Sales Indicator (Agency Portal).
+              <div className="absolute bottom-4 left-5 right-16 -translate-y-1 text-[7px] leading-tight text-slate-700/90">
+                Stats are based on Supernova records. For the most accurate, up-to-date stats, refer to official trackers and your Sales Indicator (Agency Portal). Assumes &gt;85% Persistency.
               </div>
               <img
                 src="/supernova-stamp.png"
