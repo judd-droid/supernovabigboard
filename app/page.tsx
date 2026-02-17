@@ -94,14 +94,14 @@ export default function Page() {
 
   const approvedPerformanceSummary = useMemo(() => {
     if (!data) return '';
-    const header = `## Approved Performance (${presetLabel[preset]} · ${fmtDateRange(data.filters.start, data.filters.end)})`;
+    // Compact bullet format for easy pasting into notes/messages
+    const header = `- Approved Performance (${presetLabel[preset]} · ${fmtDateRange(data.filters.start, data.filters.end)})`;
     return [
       header,
-      '',
-      `- Approved FYC: ${formatPeso(data.team.approved.fyc)}`,
-      `- Approved FYP: ${formatPeso(data.team.approved.fyp)}`,
-      `- Approved ANP: ${formatPeso(data.team.approved.anp)}`,
-      `- Approved cases: ${formatNumber(data.team.approved.caseCount)}`,
+      `    - FYC: ${formatPeso(data.team.approved.fyc)}`,
+      `    - FYP: ${formatPeso(data.team.approved.fyp)}`,
+      `    - ANP: ${formatPeso(data.team.approved.anp)}`,
+      `    - Cases: ${formatNumber(data.team.approved.caseCount)}`,
     ].join('\n');
   }, [data, preset]);
 
@@ -147,46 +147,34 @@ export default function Page() {
   const monthlyBadgesSummary = useMemo(() => {
     if (!data?.monthlyExcellenceBadges) return '';
     const d = data.monthlyExcellenceBadges;
-    const header = `## Monthly Excellence Awards Badges (Counting: ${d.asOfMonth}) (${badgesFilter})`;
-    const guide = {
-      premiums: ['Master ₱400,000', 'Diamond ₱300,000', 'Gold ₱150,000', 'Silver ₱100,000'],
-      savedLives: ['Master 8', 'Diamond 6', 'Gold 4', 'Silver 3'],
-      income: ['Master ₱140,000', 'Diamond ₱100,000', 'Gold ₱50,000', 'Silver ₱35,000'],
-    };
+    const header = `- MEA Badges (Counting: ${d.asOfMonth}) (${badgesFilter})`;
     const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
     const filter = <T extends { spaLeg?: string }>(arr: T[]) => {
       if (badgesFilter === 'All') return arr;
       const want = badgesFilter === 'Spartans' ? 'spartan' : 'legacy';
       return arr.filter((r) => norm(r.spaLeg) === want);
     };
+    const joinOneLine = (items: string[]) => (items.length ? items.join('; ') : 'None');
     const block = (title: string, b: any, isCases = false) => {
       const achieved = filter(b.achieved ?? []);
       const close = filter(b.close ?? []);
-      const hitLines = achieved.length
-        ? achieved.map((a: any) => `- ${a.advisor} — ${a.tier} (${isCases ? a.value : formatPeso(a.value)})`)
-        : ['- None'];
-      const closeLines = close.length
-        ? close.map((c: any) => `- ${c.advisor} — ${c.targetTier} (+${isCases ? c.remaining : formatPeso(c.remaining)})`)
-        : ['- None'];
+      const hit = achieved.length
+        ? achieved.map((a: any) => `${a.advisor} — ${a.tier} (${isCases ? a.value : formatPeso(a.value)})`)
+        : ['None'];
+      const closeLine = close.length
+        ? close.map((c: any) => `${c.advisor} — ${c.targetTier} (+${isCases ? c.remaining : formatPeso(c.remaining)})`)
+        : ['None'];
+
       return [
-        `### ${title}`,
-        '',
-        'Hit:',
-        '',
-        ...hitLines,
-        '',
-        'Close:',
-        '',
-        ...closeLines,
+        `    - ${title}`,
+        `        - Hit: ${joinOneLine(hit)}`,
+        `        - Close: ${joinOneLine(closeLine)}`,
       ].join('\n');
     };
     return [
       header,
-      '',
       block('Premiums (MDRT FYP)', d.premiums, false),
-      '',
       block('Saved Lives (cases)', d.savedLives, true),
-      '',
       block('Income (FYC)', d.income, false),
     ].join('\n');
   }, [badgesFilter, data?.monthlyExcellenceBadges]);

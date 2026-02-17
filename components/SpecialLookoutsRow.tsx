@@ -95,24 +95,25 @@ export function SpecialLookoutsRow({
   }, [filteredSalesRoundup]);
 
   const cmpSummaryText = useMemo(() => {
-    const header = `## CMP as of ${asOfDisplay}`;
-    const sections = [
-      { title: '3+ Months CMP', rows: threePlus },
-      { title: '2 Months CMP', rows: watch2 },
-      { title: '1 Month CMP', rows: watch1 },
-    ];
-    const lines: string[] = [header, ''];
-    for (const s of sections) {
-      lines.push('');
-      lines.push(`${s.title} (${s.rows.length})`);
-      lines.push('');
-      if (s.rows.length === 0) {
-        lines.push('- None');
-      } else {
-        for (const r of s.rows) lines.push(`- ${r.advisor} — ${r.streakMonths} mo`);
-      }
-    }
-    return lines.join('\n');
+    // Compact single-bullet summary format (easy to paste into notes/messages)
+    const header = `- CMP as of ${asOfDisplay}`;
+
+    const joinOneLine = (items: string[]) => (items.length ? items.join('; ') : 'None');
+
+    // Match the user's preferred format:
+    //  - 3+ shows months; 2 and 1 month show names only.
+    const threePlusLine = joinOneLine(
+      threePlus.map((r) => `${r.advisor} — ${r.streakMonths} mo`)
+    );
+    const twoLine = joinOneLine(watch2.map((r) => `${r.advisor}`));
+    const oneLine = joinOneLine(watch1.map((r) => `${r.advisor}`));
+
+    return [
+      header,
+      `    - 3+ Months CMP (${threePlus.length}): ${threePlusLine}`,
+      `    - 2 Months CMP (${watch2.length}): ${twoLine}`,
+      `    - 1 Month CMP (${watch1.length}): ${oneLine}`,
+    ].join('\n');
   }, [asOfDisplay, threePlus, watch1, watch2]);
 
   const copySalesRoundup = async () => {
