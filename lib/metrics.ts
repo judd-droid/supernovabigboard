@@ -125,9 +125,11 @@ export const buildAdvisorStatuses = (
 
     if (!map.has(key)) {
       const unit = rosterIndex.get(key)?.unit;
+      const spaLeg = rosterIndex.get(key)?.spaLeg;
       map.set(key, {
         advisor,
         unit,
+        spaLeg,
         approved: emptyKpis(),
         submitted: emptyKpis(),
         paid: emptyKpis(),
@@ -137,6 +139,7 @@ export const buildAdvisorStatuses = (
 
     const st = map.get(key)!;
     if (!st.unit) st.unit = rosterIndex.get(key)?.unit;
+    if (!st.spaLeg) st.spaLeg = rosterIndex.get(key)?.spaLeg;
 
     if (isApprovedInRange(r, start, end)) addRowToKpis(st.approved, r);
     if (inRange(r.dateSubmitted, start, end)) addRowToKpis(st.submitted, r);

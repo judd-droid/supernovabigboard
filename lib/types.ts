@@ -109,6 +109,8 @@ export type MoneyKpis = {
 export type AdvisorStatus = {
   advisor: string;
   unit?: string;
+  // Classification from roster (used for SPA/LEG filtering)
+  spaLeg?: string;
   approved: MoneyKpis;
   submitted: MoneyKpis;
   paid: MoneyKpis;

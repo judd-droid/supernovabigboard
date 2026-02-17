@@ -4,7 +4,7 @@ import useSWR from 'swr';
 import { useMemo, useState } from 'react';
 import { TrendingUp, CheckCircle2, Clock3, Users } from 'lucide-react';
 
-import type { ApiResponse, RangePreset } from '@/lib/types';
+import type { ApiResponse, RangePreset, AdvisorStatus } from '@/lib/types';
 import { formatPeso, formatNumber, fmtDateRange } from '@/lib/format';
 
 import { KpiCard } from '@/components/KpiCard';
@@ -53,6 +53,7 @@ export default function Page() {
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [badgesFilter, setBadgesFilter] = useState<'All' | 'Spartans' | 'Legacy'>('All');
+  const [advisorOverviewFilter, setAdvisorOverviewFilter] = useState<'All' | 'Spartans' | 'Legacy'>('All');
 
   const effectiveAdvisor = tab === 'advisor' ? advisor : 'All';
 
@@ -72,6 +73,23 @@ export default function Page() {
     pending: data.producingAdvisors.pending.length,
     nonProducing: data.producingAdvisors.nonProducing.length,
   } : { producing: 0, pending: 0, nonProducing: 0 };
+
+  const normalizeSpaLeg = (v?: string) => {
+    const s = (v ?? '').trim().toLowerCase();
+    if (!s) return '';
+    if (s.startsWith('spa') || s.includes('spartan')) return 'Spartans';
+    if (s.startsWith('leg') || s.includes('legacy')) return 'Legacy';
+    return '';
+  };
+
+  const filterStatuses = (arr: AdvisorStatus[]) => {
+    if (advisorOverviewFilter === 'All') return arr;
+    return arr.filter(a => normalizeSpaLeg(a.spaLeg) === advisorOverviewFilter);
+  };
+
+  const filteredProducing = data ? filterStatuses(data.producingAdvisors.producing) : [];
+  const filteredPending = data ? filterStatuses(data.producingAdvisors.pending) : [];
+  const filteredNonProducing = data ? filterStatuses(data.producingAdvisors.nonProducing) : [];
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6">
@@ -196,11 +214,26 @@ export default function Page() {
             </Section>
           ) : null}
 
-          <Section title="Advisor production overview">
+          <Section
+            title="Advisor production overview"
+            right={(
+              <div className="flex items-center rounded-xl bg-slate-100 p-1">
+                {(['All', 'Spartans', 'Legacy'] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => setAdvisorOverviewFilter(opt)}
+                    className={`px-3 py-2 text-xs rounded-lg ${advisorOverviewFilter === opt ? 'bg-white shadow-sm' : 'text-slate-600'}`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            )}
+          >
             <AdvisorStatusPanel
-              producing={data.producingAdvisors.producing}
-              pending={data.producingAdvisors.pending}
-              nonProducing={data.producingAdvisors.nonProducing}
+              producing={filteredProducing}
+              pending={filteredPending}
+              nonProducing={filteredNonProducing}
             />
           </Section>
 
