@@ -1,4 +1,9 @@
+/* eslint-disable react/no-unescaped-entities */
+'use client';
+
+import { useMemo, useState } from 'react';
 import { formatPeso } from '@/lib/format';
+import { CopySummaryButton } from './CopySummaryButton';
 
 export function MdrtTracker({
   data,
@@ -8,6 +13,7 @@ export function MdrtTracker({
     targetPremium: number;
     rows: Array<{
       advisor: string;
+      spaLeg?: string;
       mdrtFyp: number;
       balanceToMdrt: number;
       balanceToCot?: number | null;
@@ -17,12 +23,62 @@ export function MdrtTracker({
 }) {
   const target = data.targetPremium;
 
+  type AdvisorFilter = 'All' | 'Spartans' | 'Legacy';
+  const [advisorFilter, setAdvisorFilter] = useState<AdvisorFilter>('All');
+
+  const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
+
+  const filteredRows = useMemo(() => {
+    if (advisorFilter === 'All') return data.rows;
+    const targetKey = advisorFilter === 'Spartans' ? 'spartan' : 'legacy';
+    return data.rows.filter((r) => norm(r.spaLeg) === targetKey);
+  }, [advisorFilter, data.rows]);
+
+  const summaryText = useMemo(() => {
+    const header = `## MDRT Tracker (YTD · as of ${data.asOf}) (${advisorFilter})`;
+    const meta = `- Target (Premium): ${formatPeso(target)}`;
+    const cols = ['Advisor', 'YTD MDRT FYP', 'Balance to MDRT', 'Status'];
+
+    const lines = filteredRows.map((r) => {
+      const achievedMdrt = r.mdrtFyp >= target;
+      const status = achievedMdrt
+        ? `Qualified (COT bal ${formatPeso(r.balanceToCot ?? 0)}; TOT bal ${formatPeso(r.balanceToTot ?? 0)})`
+        : `Not yet`;
+      return [
+        r.advisor,
+        formatPeso(r.mdrtFyp),
+        formatPeso(r.balanceToMdrt),
+        status,
+      ].join(' | ');
+    });
+
+    return [header, '', meta, '', cols.join(' | '), ...lines].join('\n');
+  }, [advisorFilter, data.asOf, filteredRows, target]);
+
   return (
     <div className="rounded-2xl bg-white border border-slate-200 shadow-sm">
       <div className="p-3 border-b border-slate-200">
         <div className="flex items-baseline justify-between gap-3">
           <div className="text-sm font-semibold text-slate-700">YTD MDRT FYP</div>
-          <div className="text-xs text-slate-400">As of {data.asOf}</div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center rounded-xl bg-slate-100 p-1">
+              {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
+                <button
+                  key={`mdrt-filter-${v}`}
+                  onClick={() => setAdvisorFilter(v)}
+                  className={`px-3 py-1.5 text-xs rounded-lg ${advisorFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            <CopySummaryButton
+              getText={() => summaryText}
+              title="Copy MDRT Tracker summary"
+              ariaLabel="Copy MDRT Tracker text summary to clipboard"
+            />
+            <div className="text-xs text-slate-400">As of {data.asOf}</div>
+          </div>
         </div>
         <div className="text-xs text-slate-400 mt-0.5">Target (Premium): {formatPeso(target)}</div>
       </div>
@@ -37,9 +93,9 @@ export function MdrtTracker({
           </tr>
         </thead>
         <tbody>
-          {data.rows.length === 0 ? (
+          {filteredRows.length === 0 ? (
             <tr><td className="p-4 text-slate-500" colSpan={4}>No data</td></tr>
-          ) : data.rows.map((r, i) => {
+          ) : filteredRows.map((r, i) => {
             const achievedMdrt = r.mdrtFyp >= target;
             const achievedCot = achievedMdrt && (r.balanceToCot ?? null) === 0;
             const achievedTot = achievedMdrt && (r.balanceToTot ?? null) === 0;
