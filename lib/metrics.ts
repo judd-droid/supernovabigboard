@@ -238,6 +238,71 @@ export const buildLeaderboards = (statuses: AdvisorStatus[]) => {
   return { advisorsByFYC, advisorsByFYP, unitsByFYC, unitsByFYP };
 };
 
+export const buildMdrtTracker = (
+  rows: SalesRow[],
+  rosterEntries: RosterEntry[],
+  end: Date,
+  unit: string | null,
+  rosterIndex: Map<string, RosterEntry>
+) => {
+  // Track year-to-date through `end` for the year that contains `end`.
+  const yearStart = new Date(Date.UTC(end.getUTCFullYear(), 0, 1));
+
+  const getUnit = (advisorName: string) => {
+    const key = normalizeName(advisorName);
+    return (rosterIndex.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
+  };
+
+  const byAdvisor = new Map<string, { advisor: string; mdrtFyp: number }>();
+
+  for (const r of rows) {
+    const advisor = (r.advisor || '').trim();
+    if (!advisor) continue;
+    if (unit && unit !== 'All' && getUnit(advisor) !== unit) continue;
+    if (!isApprovedInRange(r, yearStart, end)) continue;
+
+    const key = normalizeName(advisor);
+    const cur = byAdvisor.get(key) ?? { advisor, mdrtFyp: 0 };
+    cur.mdrtFyp += r.mdrtFyp ?? 0;
+    byAdvisor.set(key, cur);
+  }
+
+  // Ensure SPA/LEG classification is available even if the advisor has 0 YTD.
+  const spaLegByKey = new Map<string, string>();
+  for (const re of rosterEntries) {
+    const key = normalizeName(re.advisor);
+    const v = (re.spaLeg || '').trim();
+    if (key && v) spaLegByKey.set(key, v);
+  }
+
+  const TARGET_PREMIUM = 3518400; // 2027 MDRT requirement (2026 production) - Premium method
+
+  const rowsOut = Array.from(byAdvisor.entries())
+    .map(([key, v]) => {
+      const mdrtFyp = v.mdrtFyp;
+      const balanceToMdrt = Math.max(0, TARGET_PREMIUM - mdrtFyp);
+      const achieved = mdrtFyp >= TARGET_PREMIUM;
+      const cotTarget = TARGET_PREMIUM * 3;
+      const totTarget = TARGET_PREMIUM * 6;
+      return {
+        advisor: v.advisor,
+        spaLeg: spaLegByKey.get(key),
+        mdrtFyp,
+        balanceToMdrt,
+        balanceToCot: achieved ? Math.max(0, cotTarget - mdrtFyp) : null,
+        balanceToTot: achieved ? Math.max(0, totTarget - mdrtFyp) : null,
+      };
+    })
+    .sort((a, b) => b.mdrtFyp - a.mdrtFyp)
+    .slice(0, 15);
+
+  return {
+    asOf: formatISODate(end),
+    targetPremium: TARGET_PREMIUM,
+    rows: rowsOut,
+  };
+};
+
 export const buildApprovedTrendsByDay = (
   rows: SalesRow[],
   start: Date,

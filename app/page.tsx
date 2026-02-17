@@ -19,6 +19,7 @@ import { SpecialLookoutsRow } from '@/components/SpecialLookoutsRow';
 import { PpbTrackerRow } from '@/components/PpbTrackerRow';
 import { MonthlyExcellenceBadgesRow } from '@/components/MonthlyExcellenceBadgesRow';
 import { CopySummaryButton } from '@/components/CopySummaryButton';
+import { MdrtTracker } from '@/components/MdrtTracker';
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -402,7 +403,15 @@ export default function Page() {
                 </div>
               </Section>
             ) : (
-              <div className="hidden lg:block" />
+              <Section title="MDRT Tracker">
+                {data.mdrtTracker ? (
+                  <MdrtTracker data={data.mdrtTracker} />
+                ) : (
+                  <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-4 text-slate-500">
+                    No data
+                  </div>
+                )}
+              </Section>
             )}
           </div>
 

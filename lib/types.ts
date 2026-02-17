@@ -153,6 +153,21 @@ export type ApiResponse = {
     approvedByDay: Array<{ date: string; fyc: number; fyp: number; cases: number }>;
   };
 
+  // Year-to-date MDRT FYP tracker (based on the year that contains filters.end)
+  mdrtTracker?: {
+    asOf: string; // YYYY-MM-DD
+    targetPremium: number;
+    rows: Array<{
+      advisor: string;
+      spaLeg?: string;
+      mdrtFyp: number;
+      balanceToMdrt: number;
+      // Only set once MDRT is achieved
+      balanceToCot?: number | null;
+      balanceToTot?: number | null;
+    }>;
+  };
+
   // Spartan monitoring panels (range-aware)
   spartanMonitoring?: {
     totalSpartans: number;

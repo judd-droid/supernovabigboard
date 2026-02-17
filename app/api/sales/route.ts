@@ -6,6 +6,7 @@ import {
   buildAdvisorStatuses,
   buildApprovedTrendsByDay,
   buildLeaderboards,
+  buildMdrtTracker,
   getPresetRange,
   aggregateTeam,
   buildRosterIndex,
@@ -96,6 +97,7 @@ export async function GET(req: Request) {
     const statuses = buildAdvisorStatuses(rows, rosterEntries, range.start, range.end, unit);
     const team = aggregateTeam(statuses.advisors);
     const leaderboards = buildLeaderboards(statuses.advisors);
+    const mdrtTracker = buildMdrtTracker(rows, rosterEntries, range.end, unit, rosterIndex);
     const trends = {
       approvedByDay: buildApprovedTrendsByDay(rows, range.start, range.end, unit, null, rosterIndex),
     };
@@ -151,6 +153,7 @@ export async function GET(req: Request) {
         nonProducing: statuses.nonProducing,
       },
       leaderboards,
+      mdrtTracker,
       trends,
       spartanMonitoring,
       specialLookouts,
