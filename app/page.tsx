@@ -52,6 +52,7 @@ export default function Page() {
   const [advisor, setAdvisor] = useState('All');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
+  const [badgesFilter, setBadgesFilter] = useState<'All' | 'Spartans' | 'Legacy'>('All');
 
   const effectiveAdvisor = tab === 'advisor' ? advisor : 'All';
 
@@ -213,8 +214,28 @@ export default function Page() {
           </Section>
 
           {tab === 'team' && data.monthlyExcellenceBadges ? (
-            <Section title="Monthly Excellence Awards Badges">
-              <MonthlyExcellenceBadgesRow data={data.monthlyExcellenceBadges} />
+            <Section
+              title="Monthly Excellence Awards Badges"
+              right={(
+                <div className="flex items-center rounded-xl bg-slate-100 p-1">
+                  {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
+                    <button
+                      key={`meab-filter-${v}`}
+                      onClick={() => setBadgesFilter(v)}
+                      className={`px-3 py-1.5 text-xs rounded-lg ${badgesFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              )}
+            >
+              <MonthlyExcellenceBadgesRow
+                data={data.monthlyExcellenceBadges}
+                advisorFilter={badgesFilter}
+                onAdvisorFilterChange={setBadgesFilter}
+                showToggle={false}
+              />
             </Section>
           ) : null}
 

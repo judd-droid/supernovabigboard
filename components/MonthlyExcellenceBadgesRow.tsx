@@ -147,12 +147,23 @@ function BadgeCard({
 
 export function MonthlyExcellenceBadgesRow({
   data,
+  advisorFilter: externalFilter,
+  onAdvisorFilterChange,
+  showToggle = true,
 }: {
   data: NonNullable<ApiResponse['monthlyExcellenceBadges']>;
+  advisorFilter?: BadgeFilter;
+  onAdvisorFilterChange?: (v: BadgeFilter) => void;
+  showToggle?: boolean;
 }) {
-  const [advisorFilter, setAdvisorFilter] = useState<BadgeFilter>('All');
+  const [internalFilter, setInternalFilter] = useState<BadgeFilter>('All');
+  const advisorFilter = externalFilter ?? internalFilter;
+  const setAdvisorFilter = (v: BadgeFilter) => {
+    if (onAdvisorFilterChange) onAdvisorFilterChange(v);
+    else setInternalFilter(v);
+  };
 
-  const filtered = useMemo(() => {
+const filtered = useMemo(() => {
     return {
       premiums: filterBlock(data.premiums, advisorFilter),
       savedLives: filterBlock(data.savedLives, advisorFilter),
@@ -162,6 +173,7 @@ export function MonthlyExcellenceBadgesRow({
 
   return (
     <div className="grid gap-3">
+  {showToggle ? (
       <div className="flex items-center justify-end">
         <div className="flex items-center rounded-xl bg-slate-100 p-1">
           {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
@@ -175,6 +187,7 @@ export function MonthlyExcellenceBadgesRow({
           ))}
         </div>
       </div>
+  ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <BadgeCard
