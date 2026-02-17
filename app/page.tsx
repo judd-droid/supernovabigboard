@@ -190,23 +190,17 @@ export default function Page() {
       ? d.rows
       : d.rows.filter(r => norm(r.spaLeg) === (mdrtFilter === 'Spartans' ? 'spartan' : 'legacy'));
 
-    // Format to match the compact bullet + pipe table style
-    // Sample:
-    // - MDRT Tracker (YTD · as of 2026-02-18) (All)
-    //
-    // Advisor | YTD MDRT FYP | Balance to MDRT
-    const header = `- MDRT Tracker (YTD · as of ${d.asOf}) (${mdrtFilter})`;
-    const cols = ['Advisor', 'YTD MDRT FYP', 'Balance to MDRT'];
-    const lines = rows.map((r) => [
-      r.advisor,
-      formatPeso(r.mdrtFyp),
-      formatPeso(Math.max(0, r.balanceToMdrt)),
-    ].join(' | '));
-
-    // Keep target for calculations, but do not print targets/tiers yet.
-    void target;
-
-    return [header, '', cols.join(' | '), ...lines].join('\n');
+    const header = `## MDRT Tracker (YTD · as of ${d.asOf}) (${mdrtFilter})`;
+    const meta = `- Target (Premium): ${formatPeso(target)}`;
+    const cols = ['Advisor', 'YTD MDRT FYP', 'Balance to MDRT', 'Status'];
+    const lines = rows.map((r) => {
+      const achievedMdrt = r.mdrtFyp >= target;
+      const status = achievedMdrt
+        ? `Qualified (COT bal ${formatPeso(r.balanceToCot ?? 0)}; TOT bal ${formatPeso(r.balanceToTot ?? 0)})`
+        : 'Not yet';
+      return [r.advisor, formatPeso(r.mdrtFyp), formatPeso(r.balanceToMdrt), status].join(' | ');
+    });
+    return [header, '', meta, '', cols.join(' | '), ...lines].join('\n');
   }, [data?.mdrtTracker, mdrtFilter]);
 
   return (

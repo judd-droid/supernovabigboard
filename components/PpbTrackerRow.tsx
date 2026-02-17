@@ -94,31 +94,33 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
 
   return (
     <>
-    <div className="rounded-2xl bg-white border border-slate-200 shadow-sm">
+      {/* Controls (outside the card) */}
+      <div className="flex items-center justify-end gap-3 mb-2">
+        <CopySummaryButton
+          getText={() => summaryText}
+          title="Copy PPB Tracker summary"
+          ariaLabel="Copy PPB Tracker text summary to clipboard"
+        />
+        <div className="flex items-center rounded-xl bg-slate-100 p-1">
+          {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
+            <button
+              key={`ppb-filter-${v}`}
+              onClick={() => setAdvisorFilter(v)}
+              className={`px-3 py-1.5 text-xs rounded-lg ${advisorFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div className="flex items-center justify-between p-3 border-b border-slate-200">
           <div className="flex items-center gap-2">
             <Badge tone="slate">PPB Tracker</Badge>
             <div className="text-xs text-slate-500">{data.quarter} (QTD)</div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center rounded-xl bg-slate-100 p-1">
-              {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
-                <button
-                  key={`ppb-filter-${v}`}
-                  onClick={() => setAdvisorFilter(v)}
-                  className={`px-3 py-1.5 text-xs rounded-lg ${advisorFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-            <CopySummaryButton
-              getText={() => summaryText}
-              title="Copy PPB Tracker summary"
-              ariaLabel="Copy PPB Tracker text summary to clipboard"
-            />
-            <div className="text-xs text-slate-400">FYC · Cases</div>
-          </div>
+          <div className="text-xs text-slate-400">FYC · Cases</div>
         </div>
 
         <div className="max-h-[360px] overflow-auto p-3">
