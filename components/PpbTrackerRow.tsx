@@ -243,7 +243,9 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                   <>
                     Well done — you&apos;re at <span className="font-extrabold">{pct(joltRow.totalBonusRate)}</span> total bonus rate so far.
                     {joltRow.projectedBonus != null && joltRow.projectedBonus > 0 ? (
-                      <> Projected PPB Bonus is <span className="font-extrabold">{formatPeso(joltRow.projectedBonus)}</span>.</>
+                      <span className="block mt-1">
+                        Projected PPB Bonus is <span className="font-extrabold">{formatPeso(joltRow.projectedBonus)}</span>.
+                      </span>
                     ) : null}
                   </>
                 ) : (
