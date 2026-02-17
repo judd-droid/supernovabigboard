@@ -3,7 +3,6 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { Badge } from './Badge';
-import { CopySummaryButton } from './CopySummaryButton';
 import { formatNumber, formatPeso } from '@/lib/format';
 import type { PpbTracker, PpbTrackerRow as PpbRow } from '@/lib/types';
 import { Download, X, Zap } from 'lucide-react';
@@ -21,11 +20,18 @@ const safeFile = (s: string) =>
     .replace(/\s+/g, '_')
     .slice(0, 80);
 
-export function PpbTrackerRow({ data }: { data: PpbTracker }) {
+type PpbAdvisorFilter = 'All' | 'Spartans' | 'Legacy';
+
+export function PpbTrackerRow({
+  data,
+  advisorFilter = 'All',
+}: {
+  data: PpbTracker;
+  advisorFilter?: PpbAdvisorFilter;
+}) {
   const [m1, m2, m3] = data.months;
 
-  type PpbAdvisorFilter = 'All' | 'Spartans' | 'Legacy';
-  const [advisorFilter, setAdvisorFilter] = useState<PpbAdvisorFilter>('All');
+  // Filter state is lifted to the parent so controls can live in the Section header row.
 
   const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
 
@@ -35,22 +41,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
     return data.rows.filter(r => norm(r.spaLeg) === target);
   }, [advisorFilter, data.rows]);
 
-  const summaryText = useMemo(() => {
-    const header = `## PPB Tracker (${advisorFilter}) — ${data.quarter}`;
-    const cols = ['Advisor', 'FYC', 'Cases', 'Total Bonus', 'PPB', 'CCB', 'Projected'];
-    const lines = filteredRows.map((r) => {
-      return [
-        r.advisor,
-        formatPeso(r.fyc),
-        `${r.cases}`,
-        `${pct(r.totalBonusRate)}`,
-        `${pct(r.ppbRate)}`,
-        `${pct(r.ccbRate)}`,
-        r.projectedBonus == null ? '—' : formatPeso(r.projectedBonus),
-      ].join(' | ');
-    });
-    return [header, '', cols.join(' | '), ...lines].join('\n');
-  }, [advisorFilter, data.quarter, filteredRows]);
+  // Summary text is generated in the parent (for the Copy button in the Section header).
 
   // Jolt (advisor-specific, shareable sticky note)
   const [joltRow, setJoltRow] = useState<PpbRow | null>(null);
@@ -94,26 +85,6 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
 
   return (
     <>
-      {/* Controls (outside the card) */}
-      <div className="flex items-center justify-end gap-3 mb-2">
-        <CopySummaryButton
-          getText={() => summaryText}
-          title="Copy PPB Tracker summary"
-          ariaLabel="Copy PPB Tracker text summary to clipboard"
-        />
-        <div className="flex items-center rounded-xl bg-slate-100 p-1">
-          {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
-            <button
-              key={`ppb-filter-${v}`}
-              onClick={() => setAdvisorFilter(v)}
-              className={`px-3 py-1.5 text-xs rounded-lg ${advisorFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div className="rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div className="flex items-center justify-between p-3 border-b border-slate-200">
           <div className="flex items-center gap-2">

@@ -57,6 +57,7 @@ export default function Page() {
   const [badgesFilter, setBadgesFilter] = useState<'All' | 'Spartans' | 'Legacy'>('All');
   const [advisorOverviewFilter, setAdvisorOverviewFilter] = useState<'All' | 'Spartans' | 'Legacy'>('All');
   const [mdrtFilter, setMdrtFilter] = useState<'All' | 'Spartans' | 'Legacy'>('All');
+  const [ppbFilter, setPpbFilter] = useState<'All' | 'Spartans' | 'Legacy'>('All');
 
   const effectiveAdvisor = tab === 'advisor' ? advisor : 'All';
 
@@ -180,6 +181,30 @@ export default function Page() {
       block('Income (FYC)', d.income, false),
     ].join('\n');
   }, [badgesFilter, data?.monthlyExcellenceBadges]);
+
+  const ppbTrackerSummaryText = useMemo(() => {
+    if (!data?.ppbTracker) return '';
+    const d = data.ppbTracker;
+    const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
+    const rows = ppbFilter === 'All'
+      ? d.rows
+      : d.rows.filter(r => norm(r.spaLeg) === (ppbFilter === 'Spartans' ? 'spartan' : 'legacy'));
+
+    const pct = (r: number | null | undefined) => (r == null ? '—' : `${Math.round(r * 100)}%`);
+    const header = `## PPB Tracker (${ppbFilter}) — ${d.quarter}`;
+    const cols = ['Advisor', 'FYC', 'Cases', 'Total Bonus', 'PPB', 'CCB', 'Projected'];
+    const lines = rows.map((r) => [
+      r.advisor,
+      formatPeso(r.fyc),
+      `${r.cases}`,
+      `${pct(r.totalBonusRate)}`,
+      `${pct(r.ppbRate)}`,
+      `${pct(r.ccbRate)}`,
+      r.projectedBonus == null ? '—' : formatPeso(r.projectedBonus),
+    ].join(' | '));
+
+    return [header, '', cols.join(' | '), ...lines].join('\n');
+  }, [data?.ppbTracker, ppbFilter]);
 
   const mdrtSummaryText = useMemo(() => {
     if (!data?.mdrtTracker) return '';
@@ -324,8 +349,26 @@ export default function Page() {
           ) : null}
 
           {tab === 'team' && data.ppbTracker ? (
-            <Section title="PPB tracker">
-              <PpbTrackerRow data={data.ppbTracker} />
+            <Section
+              title="PPB tracker"
+              right={(
+                <div className="flex items-center gap-3">
+                  <CopySummaryButton getText={() => ppbTrackerSummaryText} title="Copy PPB Tracker summary" />
+                  <div className="flex items-center rounded-xl bg-slate-100 p-1">
+                    {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
+                      <button
+                        key={`ppb-filter-${v}`}
+                        onClick={() => setPpbFilter(v)}
+                        className={`px-3 py-2 text-xs rounded-lg ${ppbFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            >
+              <PpbTrackerRow data={data.ppbTracker} advisorFilter={ppbFilter} />
             </Section>
           ) : null}
 
