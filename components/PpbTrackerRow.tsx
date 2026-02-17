@@ -46,7 +46,7 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
         `${pct(r.totalBonusRate)}`,
         `${pct(r.ppbRate)}`,
         `${pct(r.ccbRate)}`,
-        formatPeso(r.projectedBonus),
+        r.projectedBonus == null ? '—' : formatPeso(r.projectedBonus),
       ].join(' | ');
     });
     return [header, cols.join(' | '), ...lines].join('\n');
