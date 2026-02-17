@@ -58,10 +58,13 @@ export function MdrtTracker({
   return (
     <div className="rounded-2xl bg-white border border-slate-200 shadow-sm">
       <div className="p-3 border-b border-slate-200">
-        <div className="flex items-baseline justify-between gap-3">
-          <div className="text-sm font-semibold text-slate-700">YTD MDRT FYP</div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center rounded-xl bg-slate-100 p-1">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-slate-700">YTD MDRT FYP</div>
+            <div className="text-xs text-slate-400 mt-0.5">Target (Premium): {formatPeso(target)}</div>
+
+            {/* Filter toggle (moved below target for breathing room) */}
+            <div className="mt-2 flex items-center rounded-xl bg-slate-100 p-1 w-fit">
               {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
                 <button
                   key={`mdrt-filter-${v}`}
@@ -72,15 +75,17 @@ export function MdrtTracker({
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-1">
+            <div className="text-xs text-slate-400">As of {data.asOf}</div>
             <CopySummaryButton
               getText={() => summaryText}
               title="Copy MDRT Tracker summary"
               ariaLabel="Copy MDRT Tracker text summary to clipboard"
             />
-            <div className="text-xs text-slate-400">As of {data.asOf}</div>
           </div>
         </div>
-        <div className="text-xs text-slate-400 mt-0.5">Target (Premium): {formatPeso(target)}</div>
       </div>
 
       <table className="w-full text-sm">
