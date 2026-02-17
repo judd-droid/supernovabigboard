@@ -3,6 +3,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { Badge } from './Badge';
+import { CopySummaryButton } from './CopySummaryButton';
 import { formatNumber, formatPeso } from '@/lib/format';
 import type { PpbTracker, PpbTrackerRow as PpbRow } from '@/lib/types';
 import { Download, X, Zap } from 'lucide-react';
@@ -33,6 +34,23 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
     const target = advisorFilter === 'Spartans' ? 'spartan' : 'legacy';
     return data.rows.filter(r => norm(r.spaLeg) === target);
   }, [advisorFilter, data.rows]);
+
+  const summaryText = useMemo(() => {
+    const header = `PPB Tracker (${advisorFilter}) — ${data.quarterLabel}`;
+    const cols = ['Advisor', 'FYC', 'Cases', 'Total Bonus', 'PPB', 'CCB', 'Projected'];
+    const lines = filteredRows.map((r) => {
+      return [
+        r.advisor,
+        formatPeso(r.fyc),
+        `${r.cases}`,
+        `${pct(r.totalBonusRate)}`,
+        `${pct(r.ppbRate)}`,
+        `${pct(r.ccbRate)}`,
+        formatPeso(r.projectedBonus),
+      ].join(' | ');
+    });
+    return [header, cols.join(' | '), ...lines].join('\n');
+  }, [advisorFilter, data.quarterLabel, filteredRows]);
 
   // Jolt (advisor-specific, shareable sticky note)
   const [joltRow, setJoltRow] = useState<PpbRow | null>(null);
@@ -94,6 +112,11 @@ export function PpbTrackerRow({ data }: { data: PpbTracker }) {
                 </button>
               ))}
             </div>
+            <CopySummaryButton
+              getText={() => summaryText}
+              title="Copy PPB Tracker summary"
+              ariaLabel="Copy PPB Tracker text summary to clipboard"
+            />
             <div className="text-xs text-slate-400">FYC · Cases</div>
           </div>
         </div>

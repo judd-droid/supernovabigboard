@@ -18,6 +18,7 @@ import { SpartanMonitoringRow } from '@/components/SpartanMonitoringRow';
 import { SpecialLookoutsRow } from '@/components/SpecialLookoutsRow';
 import { PpbTrackerRow } from '@/components/PpbTrackerRow';
 import { MonthlyExcellenceBadgesRow } from '@/components/MonthlyExcellenceBadgesRow';
+import { CopySummaryButton } from '@/components/CopySummaryButton';
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -90,6 +91,79 @@ export default function Page() {
   const filteredProducing = data ? filterStatuses(data.producingAdvisors.producing) : [];
   const filteredPending = data ? filterStatuses(data.producingAdvisors.pending) : [];
   const filteredNonProducing = data ? filterStatuses(data.producingAdvisors.nonProducing) : [];
+
+  const approvedPerformanceSummary = useMemo(() => {
+    if (!data) return '';
+    const header = `Approved Performance (${presetLabel[preset]} · ${fmtDateRange(data.filters.start, data.filters.end)})`;
+    return [
+      header,
+      `Approved FYC: ${formatPeso(data.team.approved.fyc)}`,
+      `Approved FYP: ${formatPeso(data.team.approved.fyp)}`,
+      `Approved ANP: ${formatPeso(data.team.approved.anp)}`,
+      `Approved cases: ${formatNumber(data.team.approved.caseCount)}`,
+    ].join('\n');
+  }, [data, preset]);
+
+  const advisorOverviewSummary = useMemo(() => {
+    if (!data) return '';
+    const header = `Advisor Production Overview (${advisorOverviewFilter}) (${presetLabel[preset]} · ${fmtDateRange(data.filters.start, data.filters.end)})`;
+    const block = (title: string, items: AdvisorStatus[], getRight: (a: AdvisorStatus) => string) => {
+      if (!items.length) return `${title}: None`;
+      return [`${title} (${items.length})`, ...items.map(a => `- ${a.advisor}${getRight(a) ? ` — ${getRight(a)}` : ''}`)].join('\n');
+    };
+    return [
+      header,
+      block('Producing (Approved FYC)', filteredProducing, (a) => formatPeso(a.approved.fyc)),
+      '',
+      block('Pending (Pending FYC)', filteredPending, (a) => formatPeso(a.open.fyc)),
+      '',
+      block('Non-Producing', filteredNonProducing, () => ''),
+    ].join('\n');
+  }, [advisorOverviewFilter, data, filteredNonProducing, filteredPending, filteredProducing, preset]);
+
+  const monthlyBadgesSummary = useMemo(() => {
+    if (!data?.monthlyExcellenceBadges) return '';
+    const d = data.monthlyExcellenceBadges;
+    const header = `Monthly Excellence Awards Badges (Counting: ${d.asOfMonth}) (${badgesFilter})`;
+    const guide = {
+      premiums: ['Master ₱400,000', 'Diamond ₱300,000', 'Gold ₱150,000', 'Silver ₱100,000'],
+      savedLives: ['Master 8', 'Diamond 6', 'Gold 4', 'Silver 3'],
+      income: ['Master ₱140,000', 'Diamond ₱100,000', 'Gold ₱50,000', 'Silver ₱35,000'],
+    };
+    const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
+    const filter = <T extends { spaLeg?: string }>(arr: T[]) => {
+      if (badgesFilter === 'All') return arr;
+      const want = badgesFilter === 'Spartans' ? 'spartan' : 'legacy';
+      return arr.filter((r) => norm(r.spaLeg) === want);
+    };
+    const block = (title: string, b: any, guideLines: string[], isCases = false) => {
+      const achieved = filter(b.achieved ?? []);
+      const close = filter(b.close ?? []);
+      const hitLines = achieved.length
+        ? achieved.map((a: any) => `- ${a.advisor} — ${a.tier} (${isCases ? a.value : formatPeso(a.value)})`)
+        : ['- None'];
+      const closeLines = close.length
+        ? close.map((c: any) => `- ${c.advisor} — ${c.targetTier} (+${isCases ? c.remaining : formatPeso(c.remaining)})`)
+        : ['- None'];
+      return [
+        `${title}`,
+        `Guide: ${guideLines.join(' | ')}`,
+        `Hit:`,
+        ...hitLines,
+        `Close:`,
+        ...closeLines,
+      ].join('\n');
+    };
+    return [
+      header,
+      '',
+      block('Premiums (MDRT FYP)', d.premiums, guide.premiums, false),
+      '',
+      block('Saved lives (cases)', d.savedLives, guide.savedLives, true),
+      '',
+      block('Income (FYC)', d.income, guide.income, false),
+    ].join('\n');
+  }, [badgesFilter, data?.monthlyExcellenceBadges]);
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6">
@@ -183,7 +257,10 @@ export default function Page() {
 
       {data ? (
         <>
-          <Section title="Approved performance">
+          <Section
+            title="Approved performance"
+            right={<CopySummaryButton getText={() => approvedPerformanceSummary} title="Copy Approved Performance summary" />}
+          >
             <div className="grid gap-4 md:grid-cols-4">
               <KpiCard title="Approved FYC" value={formatPeso(data.team.approved.fyc)} icon={<CheckCircle2 size={18} />} />
               <KpiCard title="Approved FYP" value={formatPeso(data.team.approved.fyp)} icon={<TrendingUp size={18} />} />
@@ -217,16 +294,19 @@ export default function Page() {
           <Section
             title="Advisor production overview"
             right={(
-              <div className="flex items-center rounded-xl bg-slate-100 p-1">
-                {(['All', 'Spartans', 'Legacy'] as const).map((opt) => (
-                  <button
-                    key={opt}
-                    onClick={() => setAdvisorOverviewFilter(opt)}
-                    className={`px-3 py-2 text-xs rounded-lg ${advisorOverviewFilter === opt ? 'bg-white shadow-sm' : 'text-slate-600'}`}
-                  >
-                    {opt}
-                  </button>
-                ))}
+              <div className="flex items-center gap-3">
+                <CopySummaryButton getText={() => advisorOverviewSummary} title="Copy Advisor Production Overview summary" />
+                <div className="flex items-center rounded-xl bg-slate-100 p-1">
+                  {(['All', 'Spartans', 'Legacy'] as const).map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => setAdvisorOverviewFilter(opt)}
+                      className={`px-3 py-2 text-xs rounded-lg ${advisorOverviewFilter === opt ? 'bg-white shadow-sm' : 'text-slate-600'}`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           >
@@ -250,16 +330,19 @@ export default function Page() {
             <Section
               title="Monthly Excellence Awards Badges"
               right={(
-                <div className="flex items-center rounded-xl bg-slate-100 p-1">
-                  {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
-                    <button
-                      key={`meab-filter-${v}`}
-                      onClick={() => setBadgesFilter(v)}
-                      className={`px-3 py-1.5 text-xs rounded-lg ${badgesFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
-                    >
-                      {v}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-3">
+                  <CopySummaryButton getText={() => monthlyBadgesSummary} title="Copy Monthly Excellence Badges summary" />
+                  <div className="flex items-center rounded-xl bg-slate-100 p-1">
+                    {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
+                      <button
+                        key={`meab-filter-${v}`}
+                        onClick={() => setBadgesFilter(v)}
+                        className={`px-3 py-1.5 text-xs rounded-lg ${badgesFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             >

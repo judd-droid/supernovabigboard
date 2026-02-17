@@ -1,4 +1,5 @@
 import { Badge } from './Badge';
+import { CopySummaryButton } from './CopySummaryButton';
 import { formatNumber, formatPeso } from '@/lib/format';
 import type { ProductSaleItem, SalesRoundupItem } from '@/lib/types';
 import { useMemo, useState } from 'react';
@@ -93,6 +94,28 @@ export function SpecialLookoutsRow({
       .join('\n');
   }, [filteredSalesRoundup]);
 
+  const cmpSummaryText = useMemo(() => {
+    const header = `CMP as of ${asOfDisplay}`;
+    const sections = [
+      { title: '3+ Months CMP', rows: threePlus },
+      { title: '2 Months CMP', rows: watch2 },
+      { title: '1 Month CMP', rows: watch1 },
+    ];
+    const lines: string[] = [header];
+    for (const s of sections) {
+      lines.push('');
+      lines.push(`${s.title} (${s.rows.length})`);
+      if (s.rows.length === 0) {
+        lines.push('- None');
+      } else {
+        for (const r of s.rows) lines.push(`- ${r.advisor} — ${r.streakMonths} mo`);
+      }
+    }
+    lines.push('');
+    lines.push('Rule: consecutive months with ≥1 approved case.');
+    return lines.join('\n');
+  }, [asOfDisplay, threePlus, watch1, watch2]);
+
   const copySalesRoundup = async () => {
     if (!salesRoundupText) return;
     try {
@@ -171,7 +194,10 @@ export function SpecialLookoutsRow({
           <div className="flex items-center gap-2">
             <Badge tone="green">CMP as of {asOfDisplay}</Badge>
           </div>
-          <div className="text-xs text-slate-400">Streak</div>
+          <div className="flex items-center gap-2">
+            <CopySummaryButton getText={() => cmpSummaryText} title="Copy CMP summary" ariaLabel="Copy CMP text summary to clipboard" />
+            <div className="text-xs text-slate-400">Streak</div>
+          </div>
         </div>
         <div className="max-h-[320px] overflow-auto p-3">
           <AnyList title="3+ Months CMP" items={threePlus} tone="green" />
