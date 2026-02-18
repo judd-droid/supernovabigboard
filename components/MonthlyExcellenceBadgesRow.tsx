@@ -89,7 +89,7 @@ function BadgeCard({
         </div>
       </div>
 
-      <div className="mt-3 grid gap-3">
+      <div data-export-mea-body="1" className="mt-3 grid gap-3">
         <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2">
           <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-600">
             <Info className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
@@ -290,6 +290,15 @@ function MeabJoltModal({
         h.style.overflow = 'visible';
         h.style.textOverflow = 'clip';
       });
+
+      // In some environments, the canvas render ends up with text sitting a touch lower
+      // than the on-screen layout (font metric rounding). Nudge the body content up a bit
+      // for export ONLY so the PNG matches the UI spacing.
+      const body = target.querySelector('[data-export-mea-body="1"]') as HTMLElement | null;
+      if (body) {
+        body.style.position = 'relative';
+        body.style.top = '-2px';
+      }
 
       // Wait for fonts and layout to settle before capture.
       const fonts: any = (document as any).fonts;
