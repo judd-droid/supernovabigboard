@@ -69,7 +69,8 @@ function BadgeCard({
   const close = block.close.slice(0, 8);
 
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
+    // data-export-root lets the PNG exporter target the exact card node (no wrapper headroom)
+    <div data-export-root="mea-badge-card" className="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
       <div className="flex items-baseline justify-between gap-2">
         <div className="text-sm font-medium text-slate-700">{title}</div>
         <div className="flex items-center gap-2">
@@ -191,6 +192,54 @@ function MeabJoltModal({
   const [err, setErr] = useState<string | null>(null);
   const [noteEl, setNoteEl] = useState<HTMLDivElement | null>(null);
 
+  const trimTransparent = (canvas: HTMLCanvasElement, pad = 2) => {
+    // Trim fully transparent outer rows/cols (html2canvas sometimes adds headroom).
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return canvas;
+    const { width, height } = canvas;
+    const img = ctx.getImageData(0, 0, width, height);
+    const data = img.data;
+
+    const isRowEmpty = (y: number) => {
+      for (let x = 0; x < width; x++) {
+        if (data[(y * width + x) * 4 + 3] !== 0) return false;
+      }
+      return true;
+    };
+    const isColEmpty = (x: number) => {
+      for (let y = 0; y < height; y++) {
+        if (data[(y * width + x) * 4 + 3] !== 0) return false;
+      }
+      return true;
+    };
+
+    let top = 0;
+    while (top < height && isRowEmpty(top)) top++;
+    let bottom = height - 1;
+    while (bottom >= 0 && isRowEmpty(bottom)) bottom--;
+    let left = 0;
+    while (left < width && isColEmpty(left)) left++;
+    let right = width - 1;
+    while (right >= 0 && isColEmpty(right)) right--;
+
+    if (top >= bottom || left >= right) return canvas;
+
+    top = Math.max(0, top - pad);
+    left = Math.max(0, left - pad);
+    bottom = Math.min(height - 1, bottom + pad);
+    right = Math.min(width - 1, right + pad);
+
+    const w = right - left + 1;
+    const h = bottom - top + 1;
+    const out = document.createElement('canvas');
+    out.width = w;
+    out.height = h;
+    const octx = out.getContext('2d');
+    if (!octx) return canvas;
+    octx.drawImage(canvas, left, top, w, h, 0, 0, w, h);
+    return out;
+  };
+
   const savePng = async () => {
     if (!noteEl) return;
     setSaving(true);
@@ -231,6 +280,17 @@ function MeabJoltModal({
       host.appendChild(clone);
       document.body.appendChild(host);
 
+      // Target the exact card element to avoid any wrapper headroom.
+      const target = (clone.querySelector('[data-export-root="mea-badge-card"]') as HTMLElement) ?? clone;
+
+      // html2canvas can clip text inside overflow-hidden (Tailwind `truncate`).
+      // For export ONLY, make those boxes overflow-visible so ascenders never get cut.
+      target.querySelectorAll('.truncate').forEach((el) => {
+        const h = el as HTMLElement;
+        h.style.overflow = 'visible';
+        h.style.textOverflow = 'clip';
+      });
+
       // Wait for fonts and layout to settle before capture.
       const fonts: any = (document as any).fonts;
       if (fonts?.ready) {
@@ -238,12 +298,14 @@ function MeabJoltModal({
       }
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 
-      const canvas = await html2canvas(clone, {
+      const canvas = await html2canvas(target, {
         backgroundColor: null,
-        scale: 3,
+        // A slightly lower scale reduces rounding issues that can cause clipping.
+        scale: 2,
         useCORS: true,
       });
-      const url = canvas.toDataURL('image/png');
+      const trimmed = trimTransparent(canvas, 2);
+      const url = trimmed.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = url;
       a.download = `${fileBase}.png`;
