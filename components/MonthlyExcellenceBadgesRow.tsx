@@ -7,6 +7,7 @@ import { CheckCircle2, Download, Info, Target, Zap } from 'lucide-react';
 
 // Lazy import so html2canvas never touches the server bundle.
 const loadHtml2Canvas = async () => (await import('html2canvas')).default;
+const loadHtmlToImageToPng = async () => (await import('html-to-image')).toPng;
 
 type BadgeBlock = {
   achieved: Array<{ advisor: string; spaLeg?: string; tier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; value: number }>;
@@ -251,8 +252,6 @@ function MeabJoltModal({
     // with no transforms/animations and capture that clone.
     let host: HTMLDivElement | null = null;
     try {
-      const html2canvas = await loadHtml2Canvas();
-
       host = document.createElement('div');
       host.style.position = 'fixed';
       host.style.left = '-10000px';
@@ -297,7 +296,7 @@ function MeabJoltModal({
       const body = target.querySelector('[data-export-mea-body="1"]') as HTMLElement | null;
       if (body) {
         body.style.position = 'relative';
-        body.style.top = '-8px';
+        body.style.top = '-2px';
       }
 
       // Wait for fonts and layout to settle before capture.
@@ -307,18 +306,36 @@ function MeabJoltModal({
       }
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 
-      const canvas = await html2canvas(target, {
-        backgroundColor: null,
-        // A slightly lower scale reduces rounding issues that can cause clipping.
-        scale: 2,
-        useCORS: true,
-      });
-      const trimmed = trimTransparent(canvas, 2);
-      const url = trimmed.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${fileBase}.png`;
-      a.click();
+      const download = (url: string) => {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${fileBase}.png`;
+        a.click();
+      };
+
+      // Primary path: html-to-image tends to preserve DOM text alignment more faithfully
+      // than html2canvas on some environments.
+      try {
+        const toPng = await loadHtmlToImageToPng();
+        const url = await toPng(target, {
+          cacheBust: true,
+          pixelRatio: 2,
+          // Keep transparency outside the card; the card itself has a white background.
+          backgroundColor: undefined,
+        });
+        download(url);
+      } catch {
+        // Fallback: html2canvas + trim.
+        const html2canvas = await loadHtml2Canvas();
+        const canvas = await html2canvas(target, {
+          backgroundColor: null,
+          // A slightly lower scale reduces rounding issues that can cause clipping.
+          scale: 2,
+          useCORS: true,
+        });
+        const trimmed = trimTransparent(canvas, 2);
+        download(trimmed.toDataURL('image/png'));
+      }
     } catch (e: any) {
       setErr(e?.message ?? 'Failed to export image');
     } finally {
