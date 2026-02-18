@@ -123,8 +123,11 @@ function BadgeCard({
           {achieved.length ? (
             <div className="mt-1 space-y-1">
               {achieved.map((a) => (
+                // NOTE: html2canvas can clip ascenders when text is inside an overflow-hidden (truncate) box
+                // and the capture scale introduces rounding. Give the text a tiny vertical padding so the
+                // padding box has a bit more headroom and prevents clipping in exported PNGs.
                 <div key={`hit-${a.advisor}-${a.tier}`} className="flex items-center justify-between gap-2">
-                  <div className="truncate text-sm text-slate-900">{a.advisor}</div>
+                  <div className="truncate py-px text-sm text-slate-900">{a.advisor}</div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={tierPill(a.tier)}>{a.tier}</span>
                     <span className="text-sm font-semibold text-slate-900">
@@ -148,7 +151,7 @@ function BadgeCard({
             <div className="mt-1 space-y-1">
               {close.map((c) => (
                 <div key={`close-${c.advisor}-${c.targetTier}`} className="flex items-center justify-between gap-2">
-                  <div className="truncate text-sm text-slate-900">{c.advisor}</div>
+                  <div className="truncate py-px text-sm text-slate-900">{c.advisor}</div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={tierPill(c.targetTier)}>{c.targetTier}</span>
                     <span className="text-xs text-slate-500">+{valuePrefix ?? ''}{formatCompact(c.remaining)}</span>
