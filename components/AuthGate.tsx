@@ -92,7 +92,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="px-6 pb-5">
-          <div className="text-xs text-slate-500">Note: This is a lightweight front-end gate intended to prevent casual viewing.</div>
         </div>
       </div>
     </div>
