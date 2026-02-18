@@ -297,7 +297,7 @@ function MeabJoltModal({
       const body = target.querySelector('[data-export-mea-body="1"]') as HTMLElement | null;
       if (body) {
         body.style.position = 'relative';
-        body.style.top = '-2px';
+        body.style.top = '-4px';
       }
 
       // Wait for fonts and layout to settle before capture.
