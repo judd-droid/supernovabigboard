@@ -3,7 +3,10 @@
 
 import { useMemo, useState } from 'react';
 import type { ApiResponse } from '@/lib/types';
-import { CheckCircle2, Info, Target } from 'lucide-react';
+import { CheckCircle2, Download, Info, Target, Zap } from 'lucide-react';
+
+// Lazy import so html2canvas never touches the server bundle.
+const loadHtml2Canvas = async () => (await import('html2canvas')).default;
 
 type BadgeBlock = {
   achieved: Array<{ advisor: string; spaLeg?: string; tier: 'Silver' | 'Gold' | 'Diamond' | 'Master'; value: number }>;
@@ -51,12 +54,16 @@ function BadgeCard({
   block,
   valuePrefix,
   guide,
+  onJolt,
+  showJoltButton = true,
 }: {
   title: string;
   unitLabel: string;
   block: BadgeBlock;
   valuePrefix?: string;
   guide: { Silver: number; Gold: number; Diamond: number; Master: number };
+  onJolt?: () => void;
+  showJoltButton?: boolean;
 }) {
   const achieved = block.achieved.slice(0, 8);
   const close = block.close.slice(0, 8);
@@ -65,7 +72,20 @@ function BadgeCard({
     <div className="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
       <div className="flex items-baseline justify-between gap-2">
         <div className="text-sm font-medium text-slate-700">{title}</div>
-        <div className="text-xs text-slate-500">Counting: {unitLabel}</div>
+        <div className="flex items-center gap-2">
+          <div className="text-xs text-slate-500">Counting: {unitLabel}</div>
+          {showJoltButton ? (
+            <button
+              type="button"
+              onClick={onJolt}
+              className="inline-flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 bg-white shadow-sm hover:bg-slate-50"
+              title="Jolt"
+              aria-label="Jolt"
+            >
+              <Zap className="h-4 w-4 text-slate-700" />
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-3 grid gap-3">
@@ -145,6 +165,98 @@ function BadgeCard({
   );
 }
 
+function MeabJoltModal({
+  open,
+  onClose,
+  title,
+  unitLabel,
+  block,
+  valuePrefix,
+  guide,
+  fileBase,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  unitLabel: string;
+  block: BadgeBlock;
+  valuePrefix?: string;
+  guide: { Silver: number; Gold: number; Diamond: number; Master: number };
+  fileBase: string;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [noteEl, setNoteEl] = useState<HTMLDivElement | null>(null);
+
+  const savePng = async () => {
+    if (!noteEl) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      const html2canvas = await loadHtml2Canvas();
+      const canvas = await html2canvas(noteEl, {
+        backgroundColor: null,
+        scale: 3,
+        useCORS: true,
+      });
+      const url = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fileBase}.png`;
+      a.click();
+    } catch (e: any) {
+      setErr(e?.message ?? 'Failed to export image');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+      <div className="w-[420px] max-w-[92vw]" onClick={(e) => e.stopPropagation()}>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white border border-slate-200 shadow flex items-center justify-center"
+            aria-label="Close"
+            title="Close"
+          >
+            ✕
+          </button>
+
+          <div ref={setNoteEl}>
+            <BadgeCard
+              title={title}
+              unitLabel={unitLabel}
+              block={block}
+              valuePrefix={valuePrefix}
+              guide={guide}
+              showJoltButton={false}
+            />
+          </div>
+
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={savePng}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-slate-800 disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" />
+              {saving ? 'Saving…' : 'Save as PNG'}
+            </button>
+            {err ? <div className="text-xs text-red-600">{err}</div> : null}
+            <div className="ml-auto text-xs text-slate-400">Tip: click outside to close.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MonthlyExcellenceBadgesRow({
   data,
   advisorFilter: externalFilter,
@@ -171,6 +283,8 @@ const filtered = useMemo(() => {
     };
   }, [advisorFilter, data.income, data.premiums, data.savedLives]);
 
+  const [joltOpen, setJoltOpen] = useState<null | 'premiums' | 'savedLives' | 'income'>(null);
+
   return (
     <div className="grid gap-3">
   {showToggle ? (
@@ -196,12 +310,14 @@ const filtered = useMemo(() => {
         block={filtered.premiums}
         valuePrefix="₱"
         guide={GUIDE_THRESHOLDS.premiums}
+        onJolt={() => setJoltOpen('premiums')}
         />
         <BadgeCard
         title="Saved lives (cases)"
         unitLabel={data.asOfMonth}
         block={filtered.savedLives}
         guide={GUIDE_THRESHOLDS.savedLives}
+        onJolt={() => setJoltOpen('savedLives')}
         />
         <BadgeCard
         title="Income (FYC)"
@@ -209,8 +325,39 @@ const filtered = useMemo(() => {
         block={filtered.income}
         valuePrefix="₱"
         guide={GUIDE_THRESHOLDS.income}
+        onJolt={() => setJoltOpen('income')}
         />
       </div>
+
+      <MeabJoltModal
+        open={joltOpen === 'premiums'}
+        onClose={() => setJoltOpen(null)}
+        title="Premiums (MDRT FYP)"
+        unitLabel={data.asOfMonth}
+        block={filtered.premiums}
+        valuePrefix="₱"
+        guide={GUIDE_THRESHOLDS.premiums}
+        fileBase={`MEA_Premiums_${data.asOfMonth.replace(/\s+/g, '_')}_${advisorFilter}`}
+      />
+      <MeabJoltModal
+        open={joltOpen === 'savedLives'}
+        onClose={() => setJoltOpen(null)}
+        title="Saved lives (cases)"
+        unitLabel={data.asOfMonth}
+        block={filtered.savedLives}
+        guide={GUIDE_THRESHOLDS.savedLives}
+        fileBase={`MEA_SavedLives_${data.asOfMonth.replace(/\s+/g, '_')}_${advisorFilter}`}
+      />
+      <MeabJoltModal
+        open={joltOpen === 'income'}
+        onClose={() => setJoltOpen(null)}
+        title="Income (FYC)"
+        unitLabel={data.asOfMonth}
+        block={filtered.income}
+        valuePrefix="₱"
+        guide={GUIDE_THRESHOLDS.income}
+        fileBase={`MEA_Income_${data.asOfMonth.replace(/\s+/g, '_')}_${advisorFilter}`}
+      />
     </div>
   );
 }
