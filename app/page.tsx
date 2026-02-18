@@ -2,7 +2,7 @@
 
 import useSWR from 'swr';
 import { useMemo, useState } from 'react';
-import { TrendingUp, CheckCircle2, Clock3, Users } from 'lucide-react';
+import { TrendingUp, CheckCircle2, Clock3, Users, LogOut } from 'lucide-react';
 
 import type { ApiResponse, RangePreset, AdvisorStatus } from '@/lib/types';
 import { formatPeso, formatNumber, fmtDateRange } from '@/lib/format';
@@ -303,6 +303,22 @@ export default function Page() {
               onClick={() => window.print()}
             >
               Print
+            </button>
+
+            <button
+              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm hover:bg-slate-50 flex items-center gap-2"
+              onClick={() => {
+                try {
+                  sessionStorage.removeItem('supernova_newbiz_dashboard_auth_v1');
+                } catch {
+                  // ignore
+                }
+                window.location.reload();
+              }}
+              title="Logout"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
             </button>
           </div>
         </div>
