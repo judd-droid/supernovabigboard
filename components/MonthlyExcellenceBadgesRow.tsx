@@ -192,9 +192,50 @@ function MeabJoltModal({
     if (!noteEl) return;
     setSaving(true);
     setErr(null);
+
+    // Exporting from within a modal/overlay can cause html2canvas to mis-measure text
+    // (especially when transforms/backdrop effects are involved). To keep alignment
+    // identical to what the user sees, we clone the card into an offscreen container
+    // with no transforms/animations and capture that clone.
+    let host: HTMLDivElement | null = null;
     try {
       const html2canvas = await loadHtml2Canvas();
-      const canvas = await html2canvas(noteEl, {
+
+      host = document.createElement('div');
+      host.style.position = 'fixed';
+      host.style.left = '-10000px';
+      host.style.top = '0';
+      host.style.width = '420px';
+      host.style.padding = '0';
+      host.style.margin = '0';
+      host.style.background = 'transparent';
+      host.style.transform = 'none';
+      host.style.filter = 'none';
+      host.style.opacity = '1';
+      host.style.pointerEvents = 'none';
+      host.style.zIndex = '-1';
+
+      const clone = noteEl.cloneNode(true) as HTMLDivElement;
+      // Ensure the clone isn't affected by any inline transforms/animations.
+      (clone.style as any).transform = 'none';
+      clone.querySelectorAll('*').forEach((el) => {
+        const h = el as HTMLElement;
+        h.style.animation = 'none';
+        h.style.transition = 'none';
+        (h.style as any).transform = 'none';
+      });
+
+      host.appendChild(clone);
+      document.body.appendChild(host);
+
+      // Wait for fonts and layout to settle before capture.
+      const fonts: any = (document as any).fonts;
+      if (fonts?.ready) {
+        await fonts.ready;
+      }
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
+      const canvas = await html2canvas(clone, {
         backgroundColor: null,
         scale: 3,
         useCORS: true,
@@ -207,6 +248,7 @@ function MeabJoltModal({
     } catch (e: any) {
       setErr(e?.message ?? 'Failed to export image');
     } finally {
+      host?.remove();
       setSaving(false);
     }
   };
