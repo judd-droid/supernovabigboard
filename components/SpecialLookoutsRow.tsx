@@ -2,6 +2,8 @@ import { Badge } from './Badge';
 import { CopySummaryButton } from './CopySummaryButton';
 import { formatNumber, formatPeso } from '@/lib/format';
 import type { ProductSaleItem, SalesRoundupItem } from '@/lib/types';
+import type { SpaLegFilter } from '@/lib/spaLeg';
+import { matchesSpaLegFilter } from '@/lib/spaLeg';
 import { useMemo, useState } from 'react';
 
 function sumFyc(items: ProductSaleItem[]) {
@@ -47,6 +49,7 @@ export function SpecialLookoutsRow({
   productSellers,
   consistentMonthlyProducers,
   salesRoundup,
+  advisorFilter = 'All',
 }: {
   productSellers: {
     aPlusSignature: ProductSaleItem[];
@@ -60,25 +63,15 @@ export function SpecialLookoutsRow({
     watch1: Array<{ advisor: string; streakMonths: number }>;
   };
   salesRoundup: SalesRoundupItem[];
+  advisorFilter?: SpaLegFilter;
 }) {
   const { threePlus, watch2, watch1 } = consistentMonthlyProducers;
   const asOfDisplay = (consistentMonthlyProducers.asOfMonth ?? '').replace('-', '/');
-
-  type SalesAdvisorFilter = 'All' | 'Spartans' | 'Legacy';
-  const [salesAdvisorFilter, setSalesAdvisorFilter] = useState<SalesAdvisorFilter>('All');
-
-  const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
-
   const filteredSalesRoundup = useMemo(() => {
     if (!salesRoundup) return [];
-    if (salesAdvisorFilter === 'All') return salesRoundup;
-    const want = salesAdvisorFilter === 'Spartans' ? 'spa' : 'leg';
-    return salesRoundup.filter((s) => {
-      const n = norm(s.spaLeg);
-      if (!n) return false;
-      return n.startsWith(want);
-    });
-  }, [salesAdvisorFilter, salesRoundup]);
+    if (advisorFilter === 'All') return salesRoundup;
+    return salesRoundup.filter((s) => matchesSpaLegFilter(s.spaLeg, advisorFilter));
+  }, [advisorFilter, salesRoundup]);
 
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
@@ -255,19 +248,7 @@ export function SpecialLookoutsRow({
             {copied ? 'Copied!' : 'Copy Text'}
           </button>
           <div className="flex items-center gap-3">
-            <div className="flex items-center rounded-xl bg-slate-100 p-1">
-              {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
-                <button
-                  key={`sales-roundup-filter-${v}`}
-                  onClick={() => setSalesAdvisorFilter(v)}
-                  className={`px-3 py-1.5 text-xs rounded-lg ${salesAdvisorFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
-                  aria-label={`Show ${v} advisors in Sales Round-up`}
-                  title={`Show ${v} advisors`}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
+            <div className="text-xs text-slate-500">Filter: {advisorFilter}</div>
             {/* Screen-reader only status for copy errors */}
             <div className="sr-only" aria-live="polite">{copyError ?? (copied ? 'Copied' : '')}</div>
           </div>

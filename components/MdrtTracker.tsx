@@ -3,6 +3,7 @@
 
 import { useMemo } from 'react';
 import { formatPeso } from '@/lib/format';
+import { matchesSpaLegFilter } from '@/lib/spaLeg';
 
 export function MdrtTracker({
   data,
@@ -23,13 +24,9 @@ export function MdrtTracker({
   advisorFilter?: 'All' | 'Spartans' | 'Legacy';
 }) {
   const target = data.targetPremium;
-
-  const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
-
   const filteredRows = useMemo(() => {
     if (advisorFilter === 'All') return data.rows;
-    const targetKey = advisorFilter === 'Spartans' ? 'spartan' : 'legacy';
-    return data.rows.filter((r) => norm(r.spaLeg) === targetKey);
+    return data.rows.filter((r) => matchesSpaLegFilter(r.spaLeg, advisorFilter));
   }, [advisorFilter, data.rows]);
 
   return (

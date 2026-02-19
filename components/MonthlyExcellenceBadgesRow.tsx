@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from 'react';
 import type { ApiResponse } from '@/lib/types';
+import { matchesSpaLegFilter } from '@/lib/spaLeg';
 import { CheckCircle2, Download, Info, Target, Zap } from 'lucide-react';
 
 // Lazy import so html2canvas never touches the server bundle.
@@ -16,14 +17,11 @@ type BadgeBlock = {
 
 type BadgeFilter = 'All' | 'Spartans' | 'Legacy';
 
-const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
-
 const filterBlock = (block: any, advisorFilter: BadgeFilter) => {
   if (advisorFilter === 'All') return block;
-  const target = advisorFilter === 'Spartans' ? 'spartan' : 'legacy';
   return {
-    achieved: (block.achieved ?? []).filter((r: any) => norm(r.spaLeg) === target),
-    close: (block.close ?? []).filter((r: any) => norm(r.spaLeg) === target),
+    achieved: (block.achieved ?? []).filter((r: any) => matchesSpaLegFilter(r.spaLeg, advisorFilter)),
+    close: (block.close ?? []).filter((r: any) => matchesSpaLegFilter(r.spaLeg, advisorFilter)),
   };
 };
 

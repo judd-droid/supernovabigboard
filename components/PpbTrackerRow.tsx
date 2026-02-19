@@ -4,6 +4,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Badge } from './Badge';
 import { formatNumber, formatPeso } from '@/lib/format';
+import { matchesSpaLegFilter } from '@/lib/spaLeg';
 import type { PpbTracker, PpbTrackerRow as PpbRow } from '@/lib/types';
 import { Download, X, Zap } from 'lucide-react';
 
@@ -32,13 +33,9 @@ export function PpbTrackerRow({
   const [m1, m2, m3] = data.months;
 
   // Filter state is lifted to the parent so controls can live in the Section header row.
-
-  const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
-
   const filteredRows = useMemo(() => {
     if (advisorFilter === 'All') return data.rows;
-    const target = advisorFilter === 'Spartans' ? 'spartan' : 'legacy';
-    return data.rows.filter(r => norm(r.spaLeg) === target);
+    return data.rows.filter((r) => matchesSpaLegFilter(r.spaLeg, advisorFilter));
   }, [advisorFilter, data.rows]);
 
   // Summary text is generated in the parent (for the Copy button in the Section header).

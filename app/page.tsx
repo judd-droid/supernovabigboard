@@ -5,6 +5,8 @@ import { useMemo, useState } from 'react';
 import { TrendingUp, CheckCircle2, Clock3, Users, LogOut } from 'lucide-react';
 
 import type { ApiResponse, RangePreset, AdvisorStatus } from '@/lib/types';
+import type { SpaLegFilter } from '@/lib/spaLeg';
+import { matchesSpaLegFilter } from '@/lib/spaLeg';
 import { formatPeso, formatNumber, fmtDateRange } from '@/lib/format';
 
 import { KpiCard } from '@/components/KpiCard';
@@ -54,10 +56,7 @@ export default function Page() {
   const [advisor, setAdvisor] = useState('All');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
-  const [badgesFilter, setBadgesFilter] = useState<'All' | 'Spartans' | 'Legacy'>('All');
-  const [advisorOverviewFilter, setAdvisorOverviewFilter] = useState<'All' | 'Spartans' | 'Legacy'>('All');
-  const [mdrtFilter, setMdrtFilter] = useState<'All' | 'Spartans' | 'Legacy'>('All');
-  const [ppbFilter, setPpbFilter] = useState<'All' | 'Spartans' | 'Legacy'>('All');
+  const [spaLegFilter, setSpaLegFilter] = useState<SpaLegFilter>('All');
 
   const effectiveAdvisor = tab === 'advisor' ? advisor : 'All';
 
@@ -78,18 +77,7 @@ export default function Page() {
     nonProducing: data.producingAdvisors.nonProducing.length,
   } : { producing: 0, pending: 0, nonProducing: 0 };
 
-  const normalizeSpaLeg = (v?: string) => {
-    const s = (v ?? '').trim().toLowerCase();
-    if (!s) return '';
-    if (s.startsWith('spa') || s.includes('spartan')) return 'Spartans';
-    if (s.startsWith('leg') || s.includes('legacy')) return 'Legacy';
-    return '';
-  };
-
-  const filterStatuses = (arr: AdvisorStatus[]) => {
-    if (advisorOverviewFilter === 'All') return arr;
-    return arr.filter(a => normalizeSpaLeg(a.spaLeg) === advisorOverviewFilter);
-  };
+  const filterStatuses = (arr: AdvisorStatus[]) => arr.filter(a => matchesSpaLegFilter(a.spaLeg, spaLegFilter));
 
   const filteredProducing = data ? filterStatuses(data.producingAdvisors.producing) : [];
   const filteredPending = data ? filterStatuses(data.producingAdvisors.pending) : [];
@@ -110,7 +98,7 @@ export default function Page() {
 
   const advisorOverviewSummary = useMemo(() => {
     if (!data) return '';
-    const header = `## Advisor Production Overview (${advisorOverviewFilter}) (${presetLabel[preset]} · ${fmtDateRange(data.filters.start, data.filters.end)})`;
+    const header = `## Advisor Production Overview (${spaLegFilter}) (${presetLabel[preset]} · ${fmtDateRange(data.filters.start, data.filters.end)})`;
 
     const producingSet = new Set(filteredProducing.map(a => (a.advisor ?? '').trim().toLowerCase()));
 
@@ -145,16 +133,16 @@ export default function Page() {
       '',
       ...listNamesOnly(filteredNonProducing),
     ].join('\n');
-  }, [advisorOverviewFilter, data, filteredNonProducing, filteredPending, filteredProducing, preset]);
+  }, [spaLegFilter, data, filteredNonProducing, filteredPending, filteredProducing, preset]);
 
   const monthlyBadgesSummary = useMemo(() => {
     if (!data?.monthlyExcellenceBadges) return '';
     const d = data.monthlyExcellenceBadges;
-    const header = `- MEA Badges (Counting: ${d.asOfMonth}) (${badgesFilter})`;
+    const header = `- MEA Badges (Counting: ${d.asOfMonth}) (${spaLegFilter})`;
     const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
     const filter = <T extends { spaLeg?: string }>(arr: T[]) => {
-      if (badgesFilter === 'All') return arr;
-      const want = badgesFilter === 'Spartans' ? 'spartan' : 'legacy';
+      if (spaLegFilter === 'All') return arr;
+      const want = spaLegFilter === 'Spartans' ? 'spartan' : 'legacy';
       return arr.filter((r) => norm(r.spaLeg) === want);
     };
     const joinOneLine = (items: string[]) => (items.length ? items.join('; ') : 'None');
@@ -180,18 +168,17 @@ export default function Page() {
       block('Saved Lives (cases)', d.savedLives, true),
       block('Income (FYC)', d.income, false),
     ].join('\n');
-  }, [badgesFilter, data?.monthlyExcellenceBadges]);
+  }, [spaLegFilter, data?.monthlyExcellenceBadges]);
 
   const ppbTrackerSummaryText = useMemo(() => {
     if (!data?.ppbTracker) return '';
     const d = data.ppbTracker;
-    const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
-    const rows = ppbFilter === 'All'
+    const rows = spaLegFilter === 'All'
       ? d.rows
-      : d.rows.filter(r => norm(r.spaLeg) === (ppbFilter === 'Spartans' ? 'spartan' : 'legacy'));
+      : d.rows.filter(r => matchesSpaLegFilter(r.spaLeg, spaLegFilter));
 
     const pct = (r: number | null | undefined) => (r == null ? '—' : `${Math.round(r * 100)}%`);
-    const header = `## PPB Tracker (${ppbFilter}) — ${d.quarter}`;
+    const header = `## PPB Tracker (${spaLegFilter}) — ${d.quarter}`;
     const cols = ['Advisor', 'FYC', 'Cases', 'Total Bonus', 'PPB', 'CCB', 'Projected'];
     const lines = rows.map((r) => [
       r.advisor,
@@ -204,17 +191,16 @@ export default function Page() {
     ].join(' | '));
 
     return [header, '', cols.join(' | '), ...lines].join('\n');
-  }, [data?.ppbTracker, ppbFilter]);
+  }, [data?.ppbTracker, spaLegFilter]);
 
   const mdrtSummaryText = useMemo(() => {
     if (!data?.mdrtTracker) return '';
     const d = data.mdrtTracker;
-    const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
-    const rows = mdrtFilter === 'All'
+    const rows = spaLegFilter === 'All'
       ? d.rows
-      : d.rows.filter(r => norm(r.spaLeg) === (mdrtFilter === 'Spartans' ? 'spartan' : 'legacy'));
+      : d.rows.filter(r => matchesSpaLegFilter(r.spaLeg, spaLegFilter));
 
-    const header = `- MDRT Tracker (YTD · as of ${d.asOf}) (${mdrtFilter})`;
+    const header = `- MDRT Tracker (YTD · as of ${d.asOf}) (${spaLegFilter})`;
     const cols = 'Advisor | YTD MDRT FYP | Balance to MDRT';
     const lines = rows.map((r) => [
       r.advisor,
@@ -224,7 +210,7 @@ export default function Page() {
 
     const ind = (s: string) => `    ${s}`;
     return [header, '', ind(cols), ...lines.map(ind)].join('\n');
-  }, [data?.mdrtTracker, mdrtFilter]);
+  }, [data?.mdrtTracker, spaLegFilter]);
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6">
@@ -286,6 +272,21 @@ export default function Page() {
               />
             </Field>
 
+            <Field label="SPA/LEG">
+              <div className="flex items-center rounded-xl bg-slate-100 p-1">
+                {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
+                  <button
+                    key={`spaleg-filter-${v}`}
+                    onClick={() => setSpaLegFilter(v)}
+                    className={`px-3 py-2 text-xs rounded-lg ${spaLegFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            
             {tab === 'advisor' ? (
               <Field label="Advisor">
                 <Select
@@ -358,6 +359,7 @@ export default function Page() {
                 productSellers={data.specialLookouts.productSellers}
                 consistentMonthlyProducers={data.specialLookouts.consistentMonthlyProducers}
                 salesRoundup={data.specialLookouts.salesRoundup ?? []}
+                advisorFilter={spaLegFilter}
               />
             </Section>
           ) : null}
@@ -368,49 +370,34 @@ export default function Page() {
               right={(
                 <div className="flex items-center gap-3">
                   <CopySummaryButton getText={() => ppbTrackerSummaryText} title="Copy PPB Tracker summary" />
-                  <div className="flex items-center rounded-xl bg-slate-100 p-1">
-                    {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
-                      <button
-                        key={`ppb-filter-${v}`}
-                        onClick={() => setPpbFilter(v)}
-                        className={`px-3 py-2 text-xs rounded-lg ${ppbFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
-                      >
-                        {v}
-                      </button>
-                    ))}
-                  </div>
+                  <div className="text-xs text-slate-500">Filter: {spaLegFilter}</div>
                 </div>
               )}
             >
-              <PpbTrackerRow data={data.ppbTracker} advisorFilter={ppbFilter} />
+              <PpbTrackerRow data={data.ppbTracker} advisorFilter={spaLegFilter} />
             </Section>
           ) : null}
 
-          <Section
-            title="Advisor production overview"
-            right={(
-              <div className="flex items-center gap-3">
-                <CopySummaryButton getText={() => advisorOverviewSummary} title="Copy Advisor Production Overview summary" />
-                <div className="flex items-center rounded-xl bg-slate-100 p-1">
-                  {(['All', 'Spartans', 'Legacy'] as const).map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => setAdvisorOverviewFilter(opt)}
-                      className={`px-3 py-2 text-xs rounded-lg ${advisorOverviewFilter === opt ? 'bg-white shadow-sm' : 'text-slate-600'}`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
+          {tab === 'team' ? (
+            <Section
+              title="Advisor production overview"
+              right={(
+                <div className="flex items-center gap-3">
+                  <CopySummaryButton
+                    getText={() => advisorOverviewSummary}
+                    title="Copy Advisor Production Overview summary"
+                  />
+                  <div className="text-xs text-slate-500">Filter: {spaLegFilter}</div>
                 </div>
-              </div>
-            )}
-          >
-            <AdvisorStatusPanel
-              producing={filteredProducing}
-              pending={filteredPending}
-              nonProducing={filteredNonProducing}
-            />
-          </Section>
+              )}
+            >
+              <AdvisorStatusPanel
+                producing={filteredProducing}
+                pending={filteredPending}
+                nonProducing={filteredNonProducing}
+              />
+            </Section>
+          ) : null}
 
           <Section title="Pipeline signals">
             <div className="grid gap-4 md:grid-cols-4">
@@ -426,26 +413,19 @@ export default function Page() {
               title="Monthly Excellence Awards Badges"
               right={(
                 <div className="flex items-center gap-3">
-                  <CopySummaryButton getText={() => monthlyBadgesSummary} title="Copy Monthly Excellence Badges summary" />
-                  <div className="flex items-center rounded-xl bg-slate-100 p-1">
-                    {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
-                      <button
-                        key={`meab-filter-${v}`}
-                        onClick={() => setBadgesFilter(v)}
-                        className={`px-3 py-1.5 text-xs rounded-lg ${badgesFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
-                      >
-                        {v}
-                      </button>
-                    ))}
-                  </div>
+                  <CopySummaryButton
+                    getText={() => monthlyBadgesSummary}
+                    title="Copy Monthly Excellence Badges summary"
+                  />
+                  <div className="text-xs text-slate-500">Filter: {spaLegFilter}</div>
                 </div>
               )}
             >
               <MonthlyExcellenceBadgesRow
                 data={data.monthlyExcellenceBadges}
-                advisorFilter={badgesFilter}
-                onAdvisorFilterChange={setBadgesFilter}
                 showToggle={false}
+                advisorFilter={spaLegFilter}
+                onAdvisorFilterChange={setSpaLegFilter}
               />
             </Section>
           ) : null}
@@ -486,28 +466,18 @@ export default function Page() {
               <Section
                 title="MDRT Tracker"
                 right={
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <CopySummaryButton
                       getText={() => mdrtSummaryText}
                       title="Copy MDRT Tracker summary"
                       ariaLabel="Copy MDRT Tracker text summary to clipboard"
                     />
-                    <div className="flex items-center rounded-xl bg-slate-100 p-1">
-                      {(['All', 'Spartans', 'Legacy'] as const).map((v) => (
-                        <button
-                          key={`mdrt-filter-${v}`}
-                          onClick={() => setMdrtFilter(v)}
-                          className={`px-3 py-1.5 text-xs rounded-lg ${mdrtFilter === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
-                        >
-                          {v}
-                        </button>
-                      ))}
-                    </div>
+                    <div className="text-xs text-slate-500">Filter: {spaLegFilter}</div>
                   </div>
                 }
               >
                 {data.mdrtTracker ? (
-                  <MdrtTracker data={data.mdrtTracker} advisorFilter={mdrtFilter} />
+                  <MdrtTracker data={data.mdrtTracker} advisorFilter={spaLegFilter} />
                 ) : (
                   <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-4 text-slate-500">
                     No data

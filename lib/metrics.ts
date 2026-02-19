@@ -1,5 +1,6 @@
 import { MoneyKpis, SalesRow, AdvisorStatus, RangePreset, RosterEntry, DprRow } from './types';
 import { formatISODate, normalizeName, monthApprovedToDate } from './parse';
+import { spaLegKey } from './spaLeg';
 
 export const buildRosterIndex = (entries: RosterEntry[]) => {
   const idx = new Map<string, RosterEntry>();
@@ -351,7 +352,7 @@ export const buildSpartanMonitoring = (
   const isSpartan = (advisorName: string) => {
     const key = normalizeName(advisorName);
     const entry = rosterIndex.get(key);
-    return norm(entry?.spaLeg) === 'spartan';
+    return spaLegKey(entry?.spaLeg) === 'spartan';
   };
   const matchesUnit = (advisorName: string) => {
     if (!unitFilter || unitFilter === 'All') return true;
@@ -361,7 +362,7 @@ export const buildSpartanMonitoring = (
   };
 
   const spartanRoster = rosterEntries
-    .filter(r => norm(r.spaLeg) === 'spartan')
+    .filter(r => spaLegKey(r.spaLeg) === 'spartan')
     .filter(r => matchesUnit(r.advisor));
 
   const totalSpartans = spartanRoster.length;
