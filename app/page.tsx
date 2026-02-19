@@ -209,23 +209,21 @@ export default function Page() {
   const mdrtSummaryText = useMemo(() => {
     if (!data?.mdrtTracker) return '';
     const d = data.mdrtTracker;
-    const target = d.targetPremium;
     const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
     const rows = mdrtFilter === 'All'
       ? d.rows
       : d.rows.filter(r => norm(r.spaLeg) === (mdrtFilter === 'Spartans' ? 'spartan' : 'legacy'));
 
-    const header = `## MDRT Tracker (YTD · as of ${d.asOf}) (${mdrtFilter})`;
-    const meta = `- Target (Premium): ${formatPeso(target)}`;
-    const cols = ['Advisor', 'YTD MDRT FYP', 'Balance to MDRT', 'Status'];
-    const lines = rows.map((r) => {
-      const achievedMdrt = r.mdrtFyp >= target;
-      const status = achievedMdrt
-        ? `Qualified (COT bal ${formatPeso(r.balanceToCot ?? 0)}; TOT bal ${formatPeso(r.balanceToTot ?? 0)})`
-        : 'Not yet';
-      return [r.advisor, formatPeso(r.mdrtFyp), formatPeso(r.balanceToMdrt), status].join(' | ');
-    });
-    return [header, '', meta, '', cols.join(' | '), ...lines].join('\n');
+    const header = `- MDRT Tracker (YTD · as of ${d.asOf}) (${mdrtFilter})`;
+    const cols = 'Advisor | YTD MDRT FYP | Balance to MDRT';
+    const lines = rows.map((r) => [
+      r.advisor,
+      formatPeso(r.mdrtFyp),
+      formatPeso(r.balanceToMdrt),
+    ].join(' | '));
+
+    const ind = (s: string) => `    ${s}`;
+    return [header, '', ind(cols), ...lines.map(ind)].join('\n');
   }, [data?.mdrtTracker, mdrtFilter]);
 
   return (
