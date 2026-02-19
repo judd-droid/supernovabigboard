@@ -1,6 +1,7 @@
 import { MoneyKpis, SalesRow, AdvisorStatus, RangePreset, RosterEntry, DprRow } from './types';
 import { formatISODate, normalizeName, monthApprovedToDate } from './parse';
-import { spaLegKey } from './spaLeg';
+import type { SpaLegFilter } from './spaLeg';
+import { spaLegKey, matchesSpaLegFilter } from './spaLeg';
 
 export const buildRosterIndex = (entries: RosterEntry[]) => {
   const idx = new Map<string, RosterEntry>();
@@ -310,7 +311,8 @@ export const buildApprovedTrendsByDay = (
   end: Date,
   unit: string | null,
   advisor: string | null,
-  rosterIndex: Map<string, RosterEntry>
+  rosterIndex: Map<string, RosterEntry>,
+  spaLegFilter: SpaLegFilter = 'All'
 ) => {
   const map = new Map<string, { fyc: number; fyp: number; cases: number }>();
 
@@ -323,6 +325,12 @@ export const buildApprovedTrendsByDay = (
     if (unit && unit !== 'All' && getUnit((r.advisor || '').trim()) !== unit) continue;
     if (advisor && advisor !== 'All' && (r.advisor || '').trim() !== advisor) continue;
     if (!isApprovedInRange(r, start, end)) continue;
+
+    if (spaLegFilter !== 'All') {
+      const key = normalizeName((r.advisor || '').trim());
+      const sl = (rosterIndex.get(key)?.spaLeg || '').trim();
+      if (!matchesSpaLegFilter(sl, spaLegFilter)) continue;
+    }
 
     const dt = r.dateApproved ?? monthApprovedToDate(r.monthApproved) ?? null;
     if (!dt) continue;
@@ -1128,4 +1136,70 @@ export const buildAdvisorDetail = (
   const approvedByDay = buildApprovedTrendsByDay(rows, start, end, unitFilter, advisor, rosterIndex);
 
   return { advisor, approved, submitted, paid, productMix, approvedByDay };
+};
+
+// Legacy monitoring panels (range-aware)
+export const buildLegacyMonitoring = (
+  statuses: AdvisorStatus[],
+  rosterEntries: RosterEntry[],
+  unitFilter: string | null
+) => {
+  const rosterIndex = buildRosterIndex(rosterEntries);
+
+  const isLegacy = (advisorName: string) => {
+    const key = normalizeName(advisorName);
+    const entry = rosterIndex.get(key);
+    return spaLegKey(entry?.spaLeg) === 'legacy';
+  };
+
+  const matchesUnit = (advisorName: string) => {
+    if (!unitFilter || unitFilter === 'All') return true;
+    const key = normalizeName(advisorName);
+    const u = (rosterIndex.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
+    return u === unitFilter;
+  };
+
+  const legacyRoster = rosterEntries
+    .filter(r => spaLegKey(r.spaLeg) === 'legacy')
+    .filter(r => matchesUnit(r.advisor));
+
+  const totalLegacies = legacyRoster.length;
+  const producingLegacies = statuses
+    .filter(s => matchesUnit(s.advisor))
+    .filter(s => isLegacy(s.advisor))
+    .filter(s => (s.approved.caseCount > 0 || s.approved.fyc > 0 || s.approved.fyp > 0))
+    .length;
+
+  const activityRatio = totalLegacies > 0 ? producingLegacies / totalLegacies : 0;
+
+  const legacyStatuses = statuses
+    .filter(s => matchesUnit(s.advisor))
+    .filter(s => isLegacy(s.advisor));
+
+  const achievers = legacyStatuses
+    .filter(s => s.approved.caseCount >= 2)
+    .sort((a, b) => b.approved.caseCount - a.approved.caseCount)
+    .map(s => ({
+      advisor: s.advisor,
+      cases: s.approved.caseCount,
+      isAnimal: s.approved.caseCount >= 6,
+    }));
+
+  const totals = legacyStatuses.reduce(
+    (acc, s) => {
+      acc.approvedFyc += s.approved.fyc;
+      acc.approvedCases += s.approved.caseCount;
+      return acc;
+    },
+    { approvedFyc: 0, approvedCases: 0 }
+  );
+  const avgFycPerCase = totals.approvedCases > 0 ? totals.approvedFyc / totals.approvedCases : 0;
+
+  return {
+    totalLegacies,
+    producingLegacies,
+    activityRatio,
+    achievers,
+    totals: { ...totals, avgFycPerCase },
+  };
 };

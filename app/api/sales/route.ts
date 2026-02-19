@@ -11,6 +11,7 @@ import {
   aggregateTeam,
   buildRosterIndex,
   buildSpartanMonitoring,
+  buildLegacyMonitoring,
   buildProductSellers,
   buildSalesRoundup,
   buildConsistentMonthlyProducers,
@@ -18,6 +19,8 @@ import {
   buildMonthlyExcellenceBadges,
 } from '@/lib/metrics';
 import type { ApiResponse, RangePreset } from '@/lib/types';
+import type { SpaLegFilter } from '@/lib/spaLeg';
+import { matchesSpaLegFilter } from '@/lib/spaLeg';
 
 const getSheetName = (key: string, fallback: string) => process.env[key] ?? fallback;
 
@@ -47,6 +50,9 @@ export async function GET(req: Request) {
     const preset = (url.searchParams.get('preset')?.toUpperCase() ?? 'MTD') as RangePreset;
     const unit = (url.searchParams.get('unit') ?? 'All').trim();
     const advisor = (url.searchParams.get('advisor') ?? 'All').trim();
+
+    const spaLeg = (url.searchParams.get('spaleg') ?? 'All').trim() as SpaLegFilter;
+
 
     const customStart = parseISO(url.searchParams.get('start'));
     const customEnd = parseISO(url.searchParams.get('end'));
@@ -95,14 +101,21 @@ export async function GET(req: Request) {
     ).values()).sort((a, b) => a.localeCompare(b));
 
     const statuses = buildAdvisorStatuses(rows, rosterEntries, range.start, range.end, unit);
-    const team = aggregateTeam(statuses.advisors);
-    const leaderboards = buildLeaderboards(statuses.advisors);
+
+    const filteredAdvisors = statuses.advisors.filter(a => matchesSpaLegFilter(a.spaLeg, spaLeg));
+    const filteredProducing = statuses.producing.filter(a => matchesSpaLegFilter(a.spaLeg, spaLeg));
+    const filteredPending = statuses.pending.filter(a => matchesSpaLegFilter(a.spaLeg, spaLeg));
+    const filteredNonProducing = statuses.nonProducing.filter(a => matchesSpaLegFilter(a.spaLeg, spaLeg));
+
+    const team = aggregateTeam(filteredAdvisors);
+    const leaderboards = buildLeaderboards(filteredAdvisors);
     const mdrtTracker = buildMdrtTracker(rows, rosterEntries, range.end, unit, rosterIndex);
     const trends = {
-      approvedByDay: buildApprovedTrendsByDay(rows, range.start, range.end, unit, null, rosterIndex),
+      approvedByDay: buildApprovedTrendsByDay(rows, range.start, range.end, unit, null, rosterIndex, spaLeg),
     };
 
     const spartanMonitoring = buildSpartanMonitoring(statuses.advisors, rosterEntries, unit);
+    const legacyMonitoring = buildLegacyMonitoring(statuses.advisors, rosterEntries, unit);
 
     // Consistent Monthly Producers (CMP) is computed through the most recently completed
     // calendar month (this month is shown in the panel title), regardless of the selected range.
@@ -148,14 +161,15 @@ export async function GET(req: Request) {
       },
       team,
       producingAdvisors: {
-        producing: statuses.producing,
-        pending: statuses.pending,
-        nonProducing: statuses.nonProducing,
+        producing: filteredProducing,
+        pending: filteredPending,
+        nonProducing: filteredNonProducing,
       },
       leaderboards,
       mdrtTracker,
       trends,
       spartanMonitoring,
+      legacyMonitoring,
       specialLookouts,
       ppbTracker,
       monthlyExcellenceBadges,

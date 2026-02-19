@@ -17,6 +17,7 @@ import { TrendChart } from '@/components/TrendChart';
 import { Leaderboard } from '@/components/Leaderboard';
 import { ProductMix } from '@/components/ProductMix';
 import { SpartanMonitoringRow } from '@/components/SpartanMonitoringRow';
+import { LegacyMonitoringRow } from '@/components/LegacyMonitoringRow';
 import { SpecialLookoutsRow } from '@/components/SpecialLookoutsRow';
 import { PpbTrackerRow } from '@/components/PpbTrackerRow';
 import { MonthlyExcellenceBadgesRow } from '@/components/MonthlyExcellenceBadgesRow';
@@ -37,11 +38,12 @@ const presetLabel: Record<RangePreset, string> = {
   CUSTOM: 'Custom',
 };
 
-function buildUrl({ preset, unit, advisor, start, end }: { preset: RangePreset; unit: string; advisor: string; start?: string; end?: string; }) {
+function buildUrl({ preset, unit, advisor, spaLeg, start, end }: { preset: RangePreset; unit: string; advisor: string; spaLeg: SpaLegFilter; start?: string; end?: string; }) {
   const p = new URLSearchParams();
   p.set('preset', preset);
   p.set('unit', unit);
   p.set('advisor', advisor);
+  p.set('spaleg', spaLeg);
   if (preset === 'CUSTOM' && start && end) {
     p.set('start', start);
     p.set('end', end);
@@ -64,9 +66,10 @@ export default function Page() {
     preset,
     unit,
     advisor: effectiveAdvisor,
+    spaLeg: spaLegFilter,
     start: customStart,
     end: customEnd,
-  }), [preset, unit, effectiveAdvisor, customStart, customEnd]);
+  }), [preset, unit, effectiveAdvisor, spaLegFilter, customStart, customEnd]);
 
   const { data, error, isLoading } = useSWR(url, fetcher, { revalidateOnFocus: false });
 
@@ -347,11 +350,17 @@ export default function Page() {
             </div>
           </Section>
 
-          {tab === 'team' && data.spartanMonitoring ? (
+          {tab === 'team' && spaLegFilter === 'Legacy' && data.legacyMonitoring ? (
+            <Section title="Legacy monitoring">
+              <LegacyMonitoringRow data={data.legacyMonitoring} />
+            </Section>
+          ) : tab === 'team' && data.spartanMonitoring ? (
             <Section title="Spartan monitoring">
               <SpartanMonitoringRow data={data.spartanMonitoring} />
             </Section>
           ) : null}
+
+
 
           {tab === 'team' && data.specialLookouts ? (
             <Section title="Special lookouts">
@@ -370,7 +379,6 @@ export default function Page() {
               right={(
                 <div className="flex items-center gap-3">
                   <CopySummaryButton getText={() => ppbTrackerSummaryText} title="Copy PPB Tracker summary" />
-                  <div className="text-xs text-slate-500">Filter: {spaLegFilter}</div>
                 </div>
               )}
             >
@@ -387,7 +395,6 @@ export default function Page() {
                     getText={() => advisorOverviewSummary}
                     title="Copy Advisor Production Overview summary"
                   />
-                  <div className="text-xs text-slate-500">Filter: {spaLegFilter}</div>
                 </div>
               )}
             >
@@ -417,7 +424,6 @@ export default function Page() {
                     getText={() => monthlyBadgesSummary}
                     title="Copy Monthly Excellence Badges summary"
                   />
-                  <div className="text-xs text-slate-500">Filter: {spaLegFilter}</div>
                 </div>
               )}
             >
@@ -472,7 +478,6 @@ export default function Page() {
                       title="Copy MDRT Tracker summary"
                       ariaLabel="Copy MDRT Tracker text summary to clipboard"
                     />
-                    <div className="text-xs text-slate-500">Filter: {spaLegFilter}</div>
                   </div>
                 }
               >

@@ -181,6 +181,19 @@ export type ApiResponse = {
     };
   };
 
+  // Legacy monitoring panels (range-aware)
+  legacyMonitoring?: {
+    totalLegacies: number;
+    producingLegacies: number;
+    activityRatio: number; // producing/total
+    achievers: SpartanAnimalsItem[]; // 2+ cases, desc
+    totals: {
+      approvedFyc: number;
+      approvedCases: number;
+      avgFycPerCase: number;
+    };
+  };
+
   // Special lookouts
   specialLookouts?: {
     productSellers: {
