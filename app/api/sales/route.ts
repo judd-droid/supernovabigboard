@@ -171,9 +171,10 @@ export async function GET(req: Request) {
       approvedByDay: buildApprovedTrendsByDay(rowsSpaLegFiltered, range.start, range.end, unit, null, rosterIndex, 'All'),
     };
 
-    // Monitoring rows are based on CURRENT classification only.
-    const spartanMonitoring = buildSpartanMonitoring(statuses.advisors, rosterEntriesCurrent, unit);
-    const legacyMonitoring = buildLegacyMonitoring(statuses.advisors, rosterEntriesCurrent, unit);
+    // Monitoring rows should align with the selected range's interpreted SPA/LEG classification.
+    // This ensures historical months (e.g., a temporary Spartan period) are counted correctly.
+    const spartanMonitoring = buildSpartanMonitoring(statuses.advisors, rosterEntries, unit);
+    const legacyMonitoring = buildLegacyMonitoring(statuses.advisors, rosterEntries, unit);
 
     // Consistent Monthly Producers (CMP) is computed through the most recently completed
     // calendar month (this month is shown in the panel title), regardless of the selected range.
