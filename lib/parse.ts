@@ -245,14 +245,6 @@ export const parseRosterEntries = (values: string[][]): RosterEntry[] => {
     return -1;
   };
 
-  const idxAnyContains = (candidates: string[]) => {
-    for (const c of candidates) {
-      const needle = norm(c);
-      const i = headersNorm.findIndex(x => x.includes(needle));
-      if (i !== -1) return i;
-    }
-    return -1;
-  };
 
   // Looser matching for columns that often have extra text in the header cell.
   const idxAnyContains = (candidates: string[]) => {
@@ -334,6 +326,17 @@ export const parseReclassificationEntries = (values: string[][]): Reclassificati
   const idxAny = (candidates: string[]) => {
     for (const c of candidates) {
       const i = headersNorm.findIndex(x => x === norm(c));
+      if (i !== -1) return i;
+    }
+    return -1;
+  };
+
+
+  // Looser matching for columns that often have extra text in the header cell.
+  const idxAnyContains = (candidates: string[]) => {
+    for (const c of candidates) {
+      const needle = norm(c);
+      const i = headersNorm.findIndex(x => x.includes(needle));
       if (i !== -1) return i;
     }
     return -1;
