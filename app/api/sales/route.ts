@@ -148,13 +148,14 @@ export async function GET(req: Request) {
       r.dateApproved ?? r.datePaid ?? r.dateSubmitted ?? null
     );
 
-    const rowsSpaLegFiltered = spaLeg === 'All'
-      ? rows
-      : rows.filter(r => {
-          const name = (r.advisor || '').trim();
-          const sl = getSpaLegForDate(name, getRowEffectiveDate(r));
-          return matchesSpaLegFilter(sl, spaLeg);
-        });
+    // Apply SPA/LEG filter to ALL panels EXCEPT Monitoring rows.
+    // "All" means "all active" (Spartans + Legacy). Inactive advisors are excluded unless
+    // the row falls within a Reclassification override period.
+    const rowsSpaLegFiltered = rows.filter(r => {
+      const name = (r.advisor || '').trim();
+      const sl = getSpaLegForDate(name, getRowEffectiveDate(r));
+      return matchesSpaLegFilter(sl, spaLeg);
+    });
 
     const statuses = buildAdvisorStatuses(rowsSpaLegFiltered, rosterEntries, range.start, range.end, unit);
 
@@ -165,7 +166,7 @@ export async function GET(req: Request) {
 
     const team = aggregateTeam(filteredAdvisors);
     const leaderboards = buildLeaderboards(filteredAdvisors);
-    const mdrtTracker = buildMdrtTracker(rows, rosterEntries, range.end, unit, rosterIndex);
+    const mdrtTracker = buildMdrtTracker(rowsSpaLegFiltered, rosterEntries, range.end, unit, rosterIndex);
     const trends = {
       // Already SPA/LEG-filtered above.
       approvedByDay: buildApprovedTrendsByDay(rowsSpaLegFiltered, range.start, range.end, unit, null, rosterIndex, 'All'),
