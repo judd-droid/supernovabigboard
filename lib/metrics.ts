@@ -98,6 +98,7 @@ export const buildAdvisorStatuses = (
   for (const name of rosterUnique) {
     const key = normalizeName(name);
     const unit = rosterIndex.get(key)?.unit;
+    const spaLeg = rosterIndex.get(key)?.spaLeg;
 
     if (unitFilter && unitFilter !== 'All') {
       const u = (unit || 'Unassigned').trim() || 'Unassigned';
@@ -107,6 +108,7 @@ export const buildAdvisorStatuses = (
     map.set(normalizeName(name), {
       advisor: name,
       unit,
+      spaLeg,
       approved: emptyKpis(),
       submitted: emptyKpis(),
       paid: emptyKpis(),
