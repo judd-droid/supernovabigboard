@@ -363,35 +363,26 @@ export const buildSpartanMonitoring = (
   rosterEntries: RosterEntry[],
   unitFilter: string | null
 ) => {
-  const rosterIndex = buildRosterIndex(rosterEntries);
-  const isSpartan = (advisorName: string) => {
-    const key = normalizeName(advisorName);
-    const entry = rosterIndex.get(key);
-    return spaLegKey(entry?.spaLeg) === 'spartan';
-  };
-  const matchesUnit = (advisorName: string) => {
+  // IMPORTANT: Spartan Activity Ratio denominator must be based on the roster *for the selected range*
+  // (i.e., respect PA Date join date filtering). The `statuses` list is initialized from roster
+  // and already excludes advisors whose PA Date is after the selected range end.
+  // Therefore, we compute totals from `statuses`, not directly from `rosterEntries`.
+  const matchesUnit = (s: AdvisorStatus) => {
     if (!unitFilter || unitFilter === 'All') return true;
-    const key = normalizeName(advisorName);
-    const u = (rosterIndex.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
+    const u = (s.unit || 'Unassigned').trim() || 'Unassigned';
     return u === unitFilter;
   };
 
-  const spartanRoster = rosterEntries
-    .filter(r => spaLegKey(r.spaLeg) === 'spartan')
-    .filter(r => matchesUnit(r.advisor));
+  const spartanStatuses = statuses
+    .filter(matchesUnit)
+    .filter(s => spaLegKey(s.spaLeg) === 'spartan');
 
-  const totalSpartans = spartanRoster.length;
-  const producingSpartans = statuses
-    .filter(s => matchesUnit(s.advisor))
-    .filter(s => isSpartan(s.advisor))
+  const totalSpartans = spartanStatuses.length;
+  const producingSpartans = spartanStatuses
     .filter(s => (s.approved.caseCount > 0 || s.approved.fyc > 0 || s.approved.fyp > 0))
     .length;
 
   const activityRatio = totalSpartans > 0 ? producingSpartans / totalSpartans : 0;
-
-  const spartanStatuses = statuses
-    .filter(s => matchesUnit(s.advisor))
-    .filter(s => isSpartan(s.advisor));
 
   const animals = spartanStatuses
     .filter(s => s.approved.caseCount >= 2)
@@ -1151,37 +1142,24 @@ export const buildLegacyMonitoring = (
   rosterEntries: RosterEntry[],
   unitFilter: string | null
 ) => {
-  const rosterIndex = buildRosterIndex(rosterEntries);
-
-  const isLegacy = (advisorName: string) => {
-    const key = normalizeName(advisorName);
-    const entry = rosterIndex.get(key);
-    return spaLegKey(entry?.spaLeg) === 'legacy';
-  };
-
-  const matchesUnit = (advisorName: string) => {
+  // Same logic as Spartan monitoring: denominator must respect PA Date join date filtering,
+  // which is already applied when initializing `statuses`.
+  const matchesUnit = (s: AdvisorStatus) => {
     if (!unitFilter || unitFilter === 'All') return true;
-    const key = normalizeName(advisorName);
-    const u = (rosterIndex.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
+    const u = (s.unit || 'Unassigned').trim() || 'Unassigned';
     return u === unitFilter;
   };
 
-  const legacyRoster = rosterEntries
-    .filter(r => spaLegKey(r.spaLeg) === 'legacy')
-    .filter(r => matchesUnit(r.advisor));
+  const legacyStatuses = statuses
+    .filter(matchesUnit)
+    .filter(s => spaLegKey(s.spaLeg) === 'legacy');
 
-  const totalLegacies = legacyRoster.length;
-  const producingLegacies = statuses
-    .filter(s => matchesUnit(s.advisor))
-    .filter(s => isLegacy(s.advisor))
+  const totalLegacies = legacyStatuses.length;
+  const producingLegacies = legacyStatuses
     .filter(s => (s.approved.caseCount > 0 || s.approved.fyc > 0 || s.approved.fyp > 0))
     .length;
 
   const activityRatio = totalLegacies > 0 ? producingLegacies / totalLegacies : 0;
-
-  const legacyStatuses = statuses
-    .filter(s => matchesUnit(s.advisor))
-    .filter(s => isLegacy(s.advisor));
 
   const achievers = legacyStatuses
     .filter(s => s.approved.caseCount >= 2)
