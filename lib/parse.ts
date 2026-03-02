@@ -1,4 +1,4 @@
-import { DprRow, RosterEntry, SalesRow } from './types';
+import { DprRow, RosterEntry, SalesRow, ReclassificationEntry } from './types';
 
 const currencyToNumber = (v: unknown): number => {
   if (v === null || v === undefined) return 0;
@@ -204,6 +204,68 @@ export const parseRosterEntries = (values: string[][]): RosterEntry[] => {
     if (!dedup.has(key)) dedup.set(key, r);
   }
   return Array.from(dedup.values());
+};
+
+export const parseReclassificationEntries = (values: string[][]): ReclassificationEntry[] => {
+  if (!values || values.length === 0) return [];
+
+  const norm = (s: unknown) => String(s ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+  const expected = ['advisors', 'advisor', 'spa / leg', 'spa/leg', 'start date', 'end date'];
+  let headerRowIndex = 0;
+  let bestScore = -1;
+  const scanLimit = Math.min(values.length, 10);
+  for (let i = 0; i < scanLimit; i++) {
+    const row = values[i] ?? [];
+    const headersHere = row.map(norm);
+    const score = expected.reduce((acc, h) => acc + (headersHere.includes(h) ? 1 : 0), 0);
+    if (score > bestScore) {
+      bestScore = score;
+      headerRowIndex = i;
+    }
+  }
+
+  if (bestScore < 2) return [];
+
+  const headers = (values[headerRowIndex] ?? []).map((h) => String(h ?? '').replace(/\s+/g, ' ').trim());
+  const headersNorm = headers.map(norm);
+  const idxAny = (candidates: string[]) => {
+    for (const c of candidates) {
+      const i = headersNorm.findIndex(x => x === norm(c));
+      if (i !== -1) return i;
+    }
+    return -1;
+  };
+
+  const iAdvisor = idxAny(['Advisors', 'Advisor', 'Name']);
+  const iSpaLeg = idxAny(['SPA / LEG', 'SPA/LEG', 'Spa / Leg', 'Spa/Leg']);
+  const iStart = idxAny(['Start Date', 'Start']);
+  const iEnd = idxAny(['End Date', 'End']);
+
+  const rows = values
+    .slice(headerRowIndex + 1)
+    .filter(r => r.some(c => String(c ?? '').trim() !== ''))
+    .map((r): ReclassificationEntry => {
+      const advisor = String((iAdvisor >= 0 ? r[iAdvisor] : r[0]) ?? '').trim();
+      const spaLeg = String((iSpaLeg >= 0 ? r[iSpaLeg] : '') ?? '').trim();
+      const startDate = parseDate(iStart >= 0 ? r[iStart] : null);
+      const endDate = parseDate(iEnd >= 0 ? r[iEnd] : null);
+      return { advisor, spaLeg, startDate, endDate };
+    })
+    .filter(r => Boolean(r.advisor) && Boolean(r.spaLeg) && Boolean(r.startDate) && Boolean(r.endDate));
+
+  // Sort by advisor then start date
+  rows.sort((a, b) => {
+    const na = normalizeName(a.advisor);
+    const nb = normalizeName(b.advisor);
+    if (na !== nb) return na.localeCompare(nb);
+    return (a.startDate?.getTime() ?? 0) - (b.startDate?.getTime() ?? 0);
+  });
+
+  return rows;
 };
 
 export const parseDprRows = (values: string[][]): DprRow[] => {

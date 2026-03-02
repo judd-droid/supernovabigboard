@@ -10,6 +10,15 @@ export type RosterEntry = {
   monthsCmp2025?: number;
 };
 
+// Rare, manual overrides for an advisor's SPA/LEG classification for a specific time window.
+// After the last override period, the advisor's current classification is taken from the Roster.
+export type ReclassificationEntry = {
+  advisor: string;
+  spaLeg: string;
+  startDate: Date | null;
+  endDate: Date | null;
+};
+
 export type SpartanAnimalsItem = {
   advisor: string;
   cases: number;
