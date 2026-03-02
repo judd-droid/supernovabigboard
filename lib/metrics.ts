@@ -99,13 +99,18 @@ export const buildAdvisorStatuses = (
     const key = normalizeName(name);
     const unit = rosterIndex.get(key)?.unit;
     const spaLeg = rosterIndex.get(key)?.spaLeg;
+    const paDate = rosterIndex.get(key)?.paDate;
+
+    // PA Date = join date. If the advisor joins AFTER the selected range,
+    // they shouldn't be counted in Producing/Pending/Non-Producing for that range.
+    if (paDate && paDate.getTime() > end.getTime()) continue;
 
     if (unitFilter && unitFilter !== 'All') {
       const u = (unit || 'Unassigned').trim() || 'Unassigned';
       if (u !== unitFilter) continue;
     }
 
-    map.set(normalizeName(name), {
+    map.set(key, {
       advisor: name,
       unit,
       spaLeg,
