@@ -13,23 +13,103 @@ const currencyToNumber = (v: unknown): number => {
 
 const parseDate = (v: unknown): Date | null => {
   if (v === null || v === undefined) return null;
+
+  // Google Sheets API can return dates as serial numbers when dateTimeRenderOption=SERIAL_NUMBER.
+  // Serial numbers are days since 1899-12-30 (Google Sheets / Excel-style).
+  const serialToDateUTC = (serial: number): Date | null => {
+    if (!Number.isFinite(serial)) return null;
+    // Heuristic: reject obviously-not-date serials.
+    // 20000 ~ 1954-10-04, 60000 ~ 2064-04-10
+    if (serial < 20000 || serial > 60000) return null;
+    const base = Date.UTC(1899, 11, 30);
+    // We only care about the calendar date in this dashboard, so ignore the fractional time portion.
+    const days = Math.floor(serial);
+    const ms = base + (days * 86400000);
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  if (typeof v === 'number') {
+    return serialToDateUTC(v);
+  }
+
   const s = String(v).trim();
   if (!s) return null;
-  // Google Sheets often returns dates like "12/5/2022" (m/d/yyyy)
-  // We'll parse it defensively.
+
+  // Numeric strings may be serial numbers (because we stringify sheet cells).
+  if (/^\d+(?:\.\d+)?$/.test(s)) {
+    const n = Number(s);
+    const asSerial = serialToDateUTC(n);
+    if (asSerial) return asSerial;
+  }
+
+  const monthNames = [
+    'january','february','march','april','may','june','july','august','september','october','november','december'
+  ];
+  const monthAbbr = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  const monthIndex = (token: string): number => {
+    const t = token.toLowerCase().replace(/\./g, '');
+    let i = monthNames.indexOf(t);
+    if (i !== -1) return i;
+    i = monthAbbr.indexOf(t.slice(0, 3));
+    return i;
+  };
+
+  // Common numeric formats: m/d/yyyy, d/m/yyyy, yyyy-m-d
+  // Note: when both m and d are <= 12, it's ambiguous. We'll use a heuristic:
+  // - if one side is > 12, we can disambiguate
+  // - otherwise, assume m/d/yyyy (AIA sheets typically use US-style), but serial numbers should handle the rest.
   const parts = s.split(/[\/\-]/).map(p => p.trim());
   if (parts.length === 3 && parts[2].length >= 2) {
-    // Support both m/d/yyyy and yyyy/m/d formats.
     const isYmd = parts[0].length === 4;
-    const m = Number(isYmd ? parts[1] : parts[0]);
-    const d = Number(isYmd ? parts[2] : parts[1]);
-    const yRaw = isYmd ? parts[0] : parts[2];
-    const y = Number(yRaw.length === 2 ? `20${yRaw}` : yRaw);
-    if ([m, d, y].every(Number.isFinite) && y > 1900) {
-      const dt = new Date(Date.UTC(y, m - 1, d));
+    if (isYmd) {
+      const y = Number(parts[0]);
+      const m = Number(parts[1]);
+      const d = Number(parts[2]);
+      if ([m, d, y].every(Number.isFinite) && y > 1900) {
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        return Number.isNaN(dt.getTime()) ? null : dt;
+      }
+    } else {
+      const a = Number(parts[0]);
+      const b = Number(parts[1]);
+      const yRaw = parts[2];
+      const y = Number(yRaw.length === 2 ? `20${yRaw}` : yRaw);
+      if ([a, b, y].every(Number.isFinite) && y > 1900) {
+        // Heuristic month/day selection.
+        const monthFirst = (a > 12 && b <= 12) ? false
+          : (b > 12 && a <= 12) ? true
+          : true;
+        const m = monthFirst ? a : b;
+        const d = monthFirst ? b : a;
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        return Number.isNaN(dt.getTime()) ? null : dt;
+      }
+    }
+  }
+
+  // Text formats: "01-Feb-2026", "1 Feb 2026", "Feb 1, 2026"
+  const m1 = s.match(/^(\d{1,2})[\-\s]([A-Za-z]{3,})[\-\s,]*(\d{2,4})$/);
+  if (m1) {
+    const d = Number(m1[1]);
+    const mi = monthIndex(m1[2]);
+    const y = Number(m1[3].length === 2 ? `20${m1[3]}` : m1[3]);
+    if (Number.isFinite(d) && mi >= 0 && Number.isFinite(y) && y > 1900) {
+      const dt = new Date(Date.UTC(y, mi, d));
       return Number.isNaN(dt.getTime()) ? null : dt;
     }
   }
+  const m2 = s.match(/^([A-Za-z]{3,})\s+(\d{1,2})(?:,)?\s+(\d{2,4})$/);
+  if (m2) {
+    const mi = monthIndex(m2[1]);
+    const d = Number(m2[2]);
+    const y = Number(m2[3].length === 2 ? `20${m2[3]}` : m2[3]);
+    if (mi >= 0 && Number.isFinite(d) && Number.isFinite(y) && y > 1900) {
+      const dt = new Date(Date.UTC(y, mi, d));
+      return Number.isNaN(dt.getTime()) ? null : dt;
+    }
+  }
+
   // Fallback: Date.parse
   const t = Date.parse(s);
   if (Number.isNaN(t)) return null;
@@ -165,11 +245,30 @@ export const parseRosterEntries = (values: string[][]): RosterEntry[] => {
     return -1;
   };
 
+  const idxAnyContains = (candidates: string[]) => {
+    for (const c of candidates) {
+      const needle = norm(c);
+      const i = headersNorm.findIndex(x => x.includes(needle));
+      if (i !== -1) return i;
+    }
+    return -1;
+  };
+
+  // Looser matching for columns that often have extra text in the header cell.
+  const idxAnyContains = (candidates: string[]) => {
+    for (const c of candidates) {
+      const needle = norm(c);
+      const i = headersNorm.findIndex(x => x.includes(needle));
+      if (i !== -1) return i;
+    }
+    return -1;
+  };
+
   const iAdvisor = idxAny(['Advisors', 'Advisor', 'Name']);
   const iUnit = idxAny(['Unit']);
-  const iSpaLeg = idxAny(['SPA / LEG', 'SPA/LEG', 'SPA / LEG ', 'SPA / LEG']);
+  const iSpaLeg = idxAnyContains(['SPA / LEG', 'SPA/LEG']);
   const iProgram = idxAny(['Program']);
-  const iPaDate = idxAny(['PA Date', 'PA date', 'PA']);
+  const iPaDate = idxAnyContains(['PA Date', 'PA date']);
   const iTenure = idxAny(['Tenure', 'TENURE']);
   const iMonthsCmp2025 = idxAny(['Months CMP 2025', 'Months CMP2025', 'CMP 2025', 'Months CMP']);
 
@@ -241,9 +340,9 @@ export const parseReclassificationEntries = (values: string[][]): Reclassificati
   };
 
   const iAdvisor = idxAny(['Advisors', 'Advisor', 'Name']);
-  const iSpaLeg = idxAny(['SPA / LEG', 'SPA/LEG', 'Spa / Leg', 'Spa/Leg']);
-  const iStart = idxAny(['Start Date', 'Start']);
-  const iEnd = idxAny(['End Date', 'End']);
+  const iSpaLeg = idxAnyContains(['SPA / LEG', 'SPA/LEG']);
+  const iStart = idxAnyContains(['Start Date', 'Start']);
+  const iEnd = idxAnyContains(['End Date', 'End']);
 
   const rows = values
     .slice(headerRowIndex + 1)

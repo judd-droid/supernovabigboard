@@ -29,7 +29,9 @@ export const getSheetValues = async (sheetName: string, range: string = 'A:Z') =
     spreadsheetId,
     range: `${sheetName}!${range}`,
     valueRenderOption: 'UNFORMATTED_VALUE',
-    dateTimeRenderOption: 'FORMATTED_STRING',
+    // Use serial numbers for dates to avoid locale-dependent parsing issues (m/d vs d/m).
+    // We'll parse serial numbers defensively downstream.
+    dateTimeRenderOption: 'SERIAL_NUMBER',
   });
 
   const values = (res.data.values ?? []) as any[];
