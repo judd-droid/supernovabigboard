@@ -117,10 +117,20 @@ const parseDate = (v: unknown): Date | null => {
 };
 
 export const normalizeName = (name: string): string => {
-  return name
+  // Normalize advisor names so minor formatting differences across sheets
+  // don't split one person into multiple keys.
+  // Examples handled:
+  // - "Sta. Maria" vs "Sta Maria"
+  // - extra spaces / line breaks
+  // - punctuation differences (.,-,'/)
+  return String(name ?? '')
     .trim()
+    .toLowerCase()
+    // Replace any run of non-alphanumeric characters with a single space.
+    // (Keeps word boundaries while removing punctuation.)
+    .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
-    .toLowerCase();
+    .trim();
 };
 
 export const parseSalesRows = (values: string[][]): SalesRow[] => {
@@ -378,6 +388,8 @@ export const parseDprRows = (values: string[][]): DprRow[] => {
     .trim()
     .toLowerCase();
 
+  // DPR sheets vary: headers may include extra text (e.g., "Month Approved", "Advisor Name").
+  // We'll use a loose "contains" matcher when locating columns.
   const expected = ['month', 'advisor', 'fyc', 'anp', 'fyp', 'pers'];
   let headerRowIndex = 0;
   let bestScore = -1;
@@ -385,7 +397,7 @@ export const parseDprRows = (values: string[][]): DprRow[] => {
   for (let i = 0; i < scanLimit; i++) {
     const row = values[i] ?? [];
     const headersHere = row.map(norm);
-    const score = expected.reduce((acc, h) => acc + (headersHere.includes(h) ? 1 : 0), 0);
+    const score = expected.reduce((acc, h) => acc + (headersHere.some(x => x === h || x.includes(h)) ? 1 : 0), 0);
     if (score > bestScore) {
       bestScore = score;
       headerRowIndex = i;
@@ -397,14 +409,22 @@ export const parseDprRows = (values: string[][]): DprRow[] => {
 
   const headers = (values[headerRowIndex] ?? []).map((h) => String(h ?? '').replace(/\s+/g, ' ').trim());
   const headersNorm = headers.map(norm);
-  const idx = (h: string) => headersNorm.findIndex(x => x === norm(h));
 
-  const iMonth = idx('Month');
-  const iAdvisor = idx('Advisor');
-  const iFyc = idx('FYC');
-  const iAnp = idx('ANP');
-  const iFyp = idx('FYP');
-  const iPers = idx('PERS');
+  const idxAnyContains = (candidates: string[]) => {
+    for (const c of candidates) {
+      const needle = norm(c);
+      const i = headersNorm.findIndex(x => x === needle || x.includes(needle));
+      if (i !== -1) return i;
+    }
+    return -1;
+  };
+
+  const iMonth = idxAnyContains(['Month', 'Month Approved', 'Month Approved (To Date)', 'Approved Month', 'Month (Approved)']);
+  const iAdvisor = idxAnyContains(['Advisor', 'Advisor Name', 'Agent', 'Agent Name']);
+  const iFyc = idxAnyContains(['FYC', 'AFYC', '1st Year Commission', 'First Year Commission']);
+  const iAnp = idxAnyContains(['ANP']);
+  const iFyp = idxAnyContains(['FYP']);
+  const iPers = idxAnyContains(['PERS', 'Persistency', 'Persistency %']);
 
   const optNumber = (v: unknown): number | null => {
     const s = String(v ?? '').trim();
@@ -413,10 +433,19 @@ export const parseDprRows = (values: string[][]): DprRow[] => {
   };
 
   const toMonthKey = (monthVal: unknown): string | null => {
-    const d = monthApprovedToDate(String(monthVal ?? '').trim());
-    if (!d) return null;
-    const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    // 1) Try parsing as a real date (works for Google Sheets serials and many date strings)
+    const d1 = parseDate(monthVal);
+    if (d1) {
+      const y = d1.getUTCFullYear();
+      const m = String(d1.getUTCMonth() + 1).padStart(2, '0');
+      return `${y}-${m}`;
+    }
+
+    // 2) Try parsing month-year strings like "Jan 2026" / "January 2026" / "2026-01"
+    const d2 = monthApprovedToDate(String(monthVal ?? '').trim());
+    if (!d2) return null;
+    const y = d2.getUTCFullYear();
+    const m = String(d2.getUTCMonth() + 1).padStart(2, '0');
     return `${y}-${m}`;
   };
 
