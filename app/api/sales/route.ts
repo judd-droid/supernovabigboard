@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getSheetValues } from '@/lib/sheets';
-import { parseRosterEntries, parseSalesRows, parseDprRows, normalizeName, parseReclassificationEntries } from '@/lib/parse';
+import { parseRosterEntries, parseSalesRows, parseDprRows, normalizeName, parseReclassificationEntries, monthApprovedToDate } from '@/lib/parse';
 import {
   buildAdvisorDetail,
   buildAdvisorStatuses,
   buildApprovedTrendsByDay,
   buildLeaderboards,
   buildMdrtTracker,
+  isApprovedInRange,
   getPresetRange,
   aggregateTeam,
   buildRosterIndex,
@@ -159,6 +160,125 @@ export async function GET(req: Request) {
 
     const statuses = buildAdvisorStatuses(rowsSpaLegFiltered, rosterEntries, range.start, range.end, unit);
 
+    // DPR reconciliation for APPROVED totals (FYC/FYP/ANP):
+    // New Business is near real-time; DPR can lag, and sometimes one is higher than the other.
+    // We reconcile by MONTH and use the higher value per month, then sum across the selected range months.
+    // This preserves the intent: never under-report due to lag in either source.
+    const pad2 = (n: number) => String(n).padStart(2, '0');
+    const toMonthKey = (d: Date) => `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}`;
+    const parseMonthKey = (k: string): Date | null => {
+      const m = /^\d{4}-\d{2}$/.exec((k || '').trim());
+      if (!m) return null;
+      const [y, mo] = k.split('-').map(Number);
+      if (!Number.isFinite(y) || !Number.isFinite(mo)) return null;
+      return new Date(Date.UTC(y, mo - 1, 1));
+    };
+    const monthsInRange = (start: Date, end: Date): string[] => {
+      const out: string[] = [];
+      let cur = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+      const last = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
+      while (cur.getTime() <= last.getTime()) {
+        out.push(toMonthKey(cur));
+        cur = new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth() + 1, 1));
+      }
+      return out;
+    };
+
+    const months = monthsInRange(range.start, range.end);
+    const monthsSet = new Set(months);
+
+    // New Business approved totals aggregated by advisor x month (within selected range)
+    const nbByAdvisorMonth = new Map<string, Map<string, { fyc: number; fyp: number; anp: number }>>();
+    const addNb = (advisorKey: string, mk: string, fyc: number, fyp: number, anp: number) => {
+      const mm = nbByAdvisorMonth.get(advisorKey) ?? new Map();
+      const cur = mm.get(mk) ?? { fyc: 0, fyp: 0, anp: 0 };
+      cur.fyc += fyc;
+      cur.fyp += fyp;
+      cur.anp += anp;
+      mm.set(mk, cur);
+      nbByAdvisorMonth.set(advisorKey, mm);
+    };
+
+    for (const r of rowsSpaLegFiltered) {
+      const name = (r.advisor || '').trim();
+      if (!name) continue;
+      if (!isApprovedInRange(r, range.start, range.end)) continue;
+
+      // Determine month bucket for the approved activity
+      const dt = r.dateApproved ?? monthApprovedToDate(r.monthApproved) ?? null;
+      if (!dt) continue;
+      const mk = toMonthKey(dt);
+      if (!monthsSet.has(mk)) continue;
+
+      const k = normalizeName(name);
+      addNb(k, mk, r.fyc ?? 0, r.fyp ?? 0, r.anp ?? 0);
+    }
+
+    // DPR totals aggregated by advisor x month (for months that overlap selected range)
+    const dprByAdvisorMonth = new Map<string, Map<string, { fyc: number; fyp: number; anp: number }>>();
+    const addDpr = (advisorKey: string, mk: string, fyc: number, fyp: number, anp: number) => {
+      const mm = dprByAdvisorMonth.get(advisorKey) ?? new Map();
+      const cur = mm.get(mk) ?? { fyc: 0, fyp: 0, anp: 0 };
+      cur.fyc += fyc;
+      cur.fyp += fyp;
+      cur.anp += anp;
+      mm.set(mk, cur);
+      dprByAdvisorMonth.set(advisorKey, mm);
+    };
+
+    for (const dr of dprRows ?? []) {
+      const name = String(dr.advisor ?? '').trim();
+      if (!name) continue;
+      const mk = String(dr.monthKey ?? '').trim();
+      if (!monthsSet.has(mk)) continue;
+
+      // Unit filter for DPR rows (match how we filter New Business)
+      if (unit && unit !== 'All') {
+        const key = normalizeName(name);
+        const u = (rosterIndexCurrent.get(key)?.unit || 'Unassigned').trim() || 'Unassigned';
+        if (u !== unit) continue;
+      }
+
+      // SPA/LEG filter for DPR rows should respect reclassification windows.
+      // Use the month start date for the segment lookup.
+      const md = parseMonthKey(mk);
+      const sl = getSpaLegForDate(name, md);
+      if (!matchesSpaLegFilter(sl, spaLeg)) continue;
+
+      const k = normalizeName(name);
+      addDpr(k, mk, dr.fyc ?? 0, dr.fyp ?? 0, dr.anp ?? 0);
+    }
+
+    // Apply per-month reconciliation to the status objects (mutates in place)
+    const reconcileApproved = (advisorName: string, current: { fyc: number; fyp: number; anp: number }) => {
+      const k = normalizeName(advisorName);
+      const nbM = nbByAdvisorMonth.get(k);
+      const dprM = dprByAdvisorMonth.get(k);
+      let fyc = 0;
+      let fyp = 0;
+      let anp = 0;
+      for (const mk of months) {
+        const nb = nbM?.get(mk) ?? { fyc: 0, fyp: 0, anp: 0 };
+        const dpr = dprM?.get(mk) ?? { fyc: 0, fyp: 0, anp: 0 };
+        fyc += Math.max(nb.fyc, dpr.fyc);
+        fyp += Math.max(nb.fyp, dpr.fyp);
+        anp += Math.max(nb.anp, dpr.anp);
+      }
+      // Never reduce below New Business totals already computed
+      return {
+        fyc: Math.max(current.fyc, fyc),
+        fyp: Math.max(current.fyp, fyp),
+        anp: Math.max(current.anp, anp),
+      };
+    };
+
+    for (const s of statuses.advisors) {
+      const eff = reconcileApproved(s.advisor, { fyc: s.approved.fyc, fyp: s.approved.fyp, anp: s.approved.anp });
+      s.approved.fyc = eff.fyc;
+      s.approved.fyp = eff.fyp;
+      s.approved.anp = eff.anp;
+    }
+
     const filteredAdvisors = statuses.advisors.filter(a => matchesSpaLegFilter(a.spaLeg, spaLeg));
     const filteredProducing = statuses.producing.filter(a => matchesSpaLegFilter(a.spaLeg, spaLeg));
     const filteredPending = statuses.pending.filter(a => matchesSpaLegFilter(a.spaLeg, spaLeg));
@@ -236,7 +356,13 @@ export async function GET(req: Request) {
     };
 
     if (advisor !== 'All') {
-      resp.advisorDetail = buildAdvisorDetail(rowsSpaLegFiltered, advisor, range.start, range.end, unit, rosterIndex);
+      const detail = buildAdvisorDetail(rowsSpaLegFiltered, advisor, range.start, range.end, unit, rosterIndex);
+      // Apply the same DPR reconciliation to the advisor detail approved totals.
+      const eff = reconcileApproved(detail.advisor, { fyc: detail.approved.fyc, fyp: detail.approved.fyp, anp: detail.approved.anp });
+      detail.approved.fyc = eff.fyc;
+      detail.approved.fyp = eff.fyp;
+      detail.approved.anp = eff.anp;
+      resp.advisorDetail = detail;
     }
 
     return NextResponse.json(resp);
