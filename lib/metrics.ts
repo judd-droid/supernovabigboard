@@ -172,7 +172,7 @@ export const buildAdvisorStatuses = (
 
   for (const a of advisors) {
     const approvedCases = a.approved.caseCount;
-    const hasApproved = approvedCases > 0 || a.approved.fyc > 0 || a.approved.fyp > 0;
+    const hasApproved = approvedCases > 0;
 
     // Pending = has "open" (unapproved) cases in the selected range.
     const hasOpen = (a.open.caseCount > 0 || a.open.fyc > 0 || a.open.fyp > 0);
@@ -379,7 +379,7 @@ export const buildSpartanMonitoring = (
 
   const totalSpartans = spartanStatuses.length;
   const producingSpartans = spartanStatuses
-    .filter(s => (s.approved.caseCount > 0 || s.approved.fyc > 0 || s.approved.fyp > 0))
+    .filter(s => s.approved.caseCount > 0)
     .length;
 
   const activityRatio = totalSpartans > 0 ? producingSpartans / totalSpartans : 0;
@@ -1156,7 +1156,7 @@ export const buildLegacyMonitoring = (
 
   const totalLegacies = legacyStatuses.length;
   const producingLegacies = legacyStatuses
-    .filter(s => (s.approved.caseCount > 0 || s.approved.fyc > 0 || s.approved.fyp > 0))
+    .filter(s => s.approved.caseCount > 0)
     .length;
 
   const activityRatio = totalLegacies > 0 ? producingLegacies / totalLegacies : 0;
