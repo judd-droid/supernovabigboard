@@ -97,7 +97,7 @@ export function PendingCaseMonitoring({ rows }: { rows: PendingCaseRow[] }) {
                     type="checkbox"
                     checked={!!checked[i]}
                     onChange={() => toggle(i)}
-                    className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    className="h-4 w-4 rounded border-slate-300 text-green-600 accent-green-600 focus:ring-green-500 cursor-pointer"
                   />
                 </td>
                 <td className="px-4 py-2.5 font-medium text-slate-800 whitespace-nowrap">{r.advisor}</td>
@@ -111,7 +111,7 @@ export function PendingCaseMonitoring({ rows }: { rows: PendingCaseRow[] }) {
                     {r.daysPending}d
                   </span>
                 </td>
-                <td className={`px-4 py-2.5 max-w-[320px] break-words ${r.remarks ? 'text-slate-700' : 'text-slate-400'}`}>
+                <td className={`px-4 py-2.5 max-w-[320px] break-words text-xs ${r.remarks ? 'text-slate-700' : 'text-slate-400'}`}>
                   {r.remarks || '—'}
                 </td>
               </tr>
