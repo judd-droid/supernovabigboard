@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { PendingCaseRow } from '@/lib/types';
 import { formatPeso } from '@/lib/format';
 
@@ -12,6 +12,22 @@ const urgencyBadge = (days: number) => {
 
 const fmtDate = (iso: string) => iso.replace(/-/g, '/');
 
+type SortField = 'anp' | 'fyc' | null;
+type SortDir = 'asc' | 'desc';
+
+function SortButton({ active, dir, onClick }: { active: boolean; dir: SortDir; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`ml-1 inline-flex flex-col items-center justify-center -space-y-1 align-middle ${active ? 'text-slate-800' : 'text-slate-400'} hover:text-slate-600 transition-colors`}
+      aria-label="Sort"
+    >
+      <svg className={`w-3 h-3 ${active && dir === 'asc' ? 'text-slate-800' : ''}`} viewBox="0 0 10 6" fill="currentColor"><path d="M5 0l5 6H0z" /></svg>
+      <svg className={`w-3 h-3 ${active && dir === 'desc' ? 'text-slate-800' : ''}`} viewBox="0 0 10 6" fill="currentColor"><path d="M5 6L0 0h10z" /></svg>
+    </button>
+  );
+}
+
 export function PendingCaseMonitoring({ rows }: { rows: PendingCaseRow[] }) {
   // Checked = "approvable". Default: checked if <= 60 days pending.
   const [checked, setChecked] = useState<Record<number, boolean>>(() => {
@@ -19,6 +35,30 @@ export function PendingCaseMonitoring({ rows }: { rows: PendingCaseRow[] }) {
     rows.forEach((r, i) => { init[i] = r.daysPending <= 60; });
     return init;
   });
+
+  const [sortField, setSortField] = useState<SortField>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      if (sortDir === 'desc') setSortDir('asc');
+      else { setSortField(null); setSortDir('desc'); } // third click resets
+    } else {
+      setSortField(field);
+      setSortDir('desc');
+    }
+  };
+
+  // Build index-aware sorted list so checkbox state follows original indices
+  const sortedRows = useMemo(() => {
+    const indexed = rows.map((r, i) => ({ r, origIdx: i }));
+    if (!sortField) return indexed;
+    return [...indexed].sort((a, b) => {
+      const va = a.r[sortField];
+      const vb = b.r[sortField];
+      return sortDir === 'desc' ? vb - va : va - vb;
+    });
+  }, [rows, sortField, sortDir]);
 
   if (rows.length === 0) {
     return (
@@ -79,24 +119,28 @@ export function PendingCaseMonitoring({ rows }: { rows: PendingCaseRow[] }) {
               <th className="px-4 py-2.5">Advisor</th>
               <th className="px-4 py-2.5">Policy #</th>
               <th className="px-4 py-2.5">Product</th>
-              <th className="px-4 py-2.5 text-right">ANP</th>
-              <th className="px-4 py-2.5 text-right">FYC</th>
+              <th className="px-4 py-2.5 text-right cursor-pointer select-none" onClick={() => handleSort('anp')}>
+                ANP<SortButton active={sortField === 'anp'} dir={sortDir} onClick={() => handleSort('anp')} />
+              </th>
+              <th className="px-4 py-2.5 text-right cursor-pointer select-none" onClick={() => handleSort('fyc')}>
+                FYC<SortButton active={sortField === 'fyc'} dir={sortDir} onClick={() => handleSort('fyc')} />
+              </th>
               <th className="px-4 py-2.5">Date Paid</th>
               <th className="px-4 py-2.5 text-center">Time Pending</th>
               <th className="px-4 py-2.5">Remarks / Status</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => (
+            {sortedRows.map(({ r, origIdx }) => (
               <tr
-                key={`${r.policyNumber}-${i}`}
+                key={`${r.policyNumber}-${origIdx}`}
                 className="border-t border-slate-100 hover:bg-slate-50/50 transition-colors"
               >
                 <td className="px-3 py-2.5 text-center">
                   <input
                     type="checkbox"
-                    checked={!!checked[i]}
-                    onChange={() => toggle(i)}
+                    checked={!!checked[origIdx]}
+                    onChange={() => toggle(origIdx)}
                     className="h-4 w-4 rounded border-slate-300 text-green-600 accent-green-600 focus:ring-green-500 cursor-pointer"
                   />
                 </td>
