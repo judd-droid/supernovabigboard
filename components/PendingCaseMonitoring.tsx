@@ -12,7 +12,7 @@ const urgencyBadge = (days: number) => {
 
 const fmtDate = (iso: string) => iso.replace(/-/g, '/');
 
-type SortField = 'anp' | 'fyc' | null;
+type SortField = 'anp' | 'fyc' | 'datePaid' | null;
 type SortDir = 'asc' | 'desc';
 
 function SortButton({ active, dir, onClick }: { active: boolean; dir: SortDir; onClick: () => void }) {
@@ -54,6 +54,10 @@ export function PendingCaseMonitoring({ rows }: { rows: PendingCaseRow[] }) {
     const indexed = rows.map((r, i) => ({ r, origIdx: i }));
     if (!sortField) return indexed;
     return [...indexed].sort((a, b) => {
+      if (sortField === 'datePaid') {
+        const cmp = a.r.datePaid.localeCompare(b.r.datePaid);
+        return sortDir === 'desc' ? -cmp : cmp;
+      }
       const va = a.r[sortField];
       const vb = b.r[sortField];
       return sortDir === 'desc' ? vb - va : va - vb;
@@ -125,7 +129,9 @@ export function PendingCaseMonitoring({ rows }: { rows: PendingCaseRow[] }) {
               <th className="px-4 py-2.5 text-right cursor-pointer select-none" onClick={() => handleSort('fyc')}>
                 FYC<SortButton active={sortField === 'fyc'} dir={sortDir} onClick={() => handleSort('fyc')} />
               </th>
-              <th className="px-4 py-2.5">Date Paid</th>
+              <th className="px-4 py-2.5 cursor-pointer select-none" onClick={() => handleSort('datePaid')}>
+                Date Paid<SortButton active={sortField === 'datePaid'} dir={sortDir} onClick={() => handleSort('datePaid')} />
+              </th>
               <th className="px-4 py-2.5 text-center">Time Pending</th>
               <th className="px-4 py-2.5">Remarks / Status</th>
             </tr>
