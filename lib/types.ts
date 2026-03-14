@@ -43,6 +43,19 @@ export type SalesRoundupItem = {
   monthApproved?: string;
 };
 
+export type PendingCaseRow = {
+  policyNumber: string;
+  advisor: string;
+  policyOwnerInitials: string;
+  product: string;
+  anp: number;
+  fyc: number;
+  datePaid: string; // ISO date
+  daysPending: number;
+  remarks: string;
+  spaLeg?: string;
+};
+
 export type PpbTrackerRow = {
   advisor: string;
   // Classification from the roster (used for PPB-only filtering)
@@ -218,6 +231,9 @@ export type ApiResponse = {
     };
     salesRoundup?: SalesRoundupItem[];
   };
+
+  // Pending cases (paid but not yet approved)
+  pendingCases?: PendingCaseRow[];
 
   // PPB tracker (quarter snapshot based on selected range end)
   ppbTracker?: PpbTracker;

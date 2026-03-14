@@ -1,4 +1,4 @@
-import { MoneyKpis, SalesRow, AdvisorStatus, RangePreset, RosterEntry, DprRow } from './types';
+import { MoneyKpis, SalesRow, AdvisorStatus, RangePreset, RosterEntry, DprRow, PendingCaseRow } from './types';
 import { formatISODate, normalizeName, monthApprovedToDate } from './parse';
 import type { SpaLegFilter } from './spaLeg';
 import { spaLegKey, matchesSpaLegFilter } from './spaLeg';
@@ -212,6 +212,58 @@ export const aggregateTeam = (
   }
 
   return { approved, submitted, paid };
+};
+
+/**
+ * Build the list of pending cases: paid but not yet approved.
+ * "today" is passed in so the API can use Manila time consistently.
+ */
+export const buildPendingCases = (
+  rows: SalesRow[],
+  rosterIndex: Map<string, RosterEntry>,
+  today: Date,
+): PendingCaseRow[] => {
+  const results: PendingCaseRow[] = [];
+
+  for (const r of rows) {
+    // Pending = has datePaid but no approval proof
+    if (!r.datePaid) continue;
+    const hasApproval = Boolean(r.dateApproved) || Boolean((r.monthApproved ?? '').trim());
+    if (hasApproval) continue;
+
+    const advisor = (r.advisor ?? '').trim();
+    const key = normalizeName(advisor);
+    const spaLeg = rosterIndex.get(key)?.spaLeg;
+
+    // Policy owner initials: "Melvin Limon" → "M--- L---"
+    const ownerParts = (r.policyOwner ?? '').trim().split(/\s+/);
+    const initials = ownerParts
+      .filter(Boolean)
+      .map(p => `${p[0].toUpperCase()}---`)
+      .join(' ');
+
+    const paidTime = r.datePaid.getTime();
+    const todayTime = today.getTime();
+    const daysPending = Math.max(0, Math.floor((todayTime - paidTime) / (1000 * 60 * 60 * 24)));
+
+    results.push({
+      policyNumber: (r.policyNumber ?? '').trim(),
+      advisor,
+      policyOwnerInitials: initials,
+      product: (r.product ?? '').trim(),
+      anp: r.anp ?? 0,
+      fyc: r.fyc ?? 0,
+      datePaid: formatISODate(r.datePaid),
+      daysPending,
+      remarks: (r.remarks ?? '').trim(),
+      spaLeg,
+    });
+  }
+
+  // Sort by days pending descending (longest-waiting first)
+  results.sort((a, b) => b.daysPending - a.daysPending);
+
+  return results;
 };
 
 export const buildLeaderboards = (statuses: AdvisorStatus[]) => {

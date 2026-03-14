@@ -2,13 +2,14 @@
 
 import useSWR from 'swr';
 import { useMemo, useState } from 'react';
-import { TrendingUp, CheckCircle2, Clock3, Users, LogOut } from 'lucide-react';
+import { TrendingUp, CheckCircle2, Users, LogOut } from 'lucide-react';
 
 import type { ApiResponse, RangePreset, AdvisorStatus } from '@/lib/types';
 import type { SpaLegFilter } from '@/lib/spaLeg';
 import { matchesSpaLegFilter } from '@/lib/spaLeg';
 import { formatPeso, formatNumber, fmtDateRange } from '@/lib/format';
 
+import { PendingCaseMonitoring } from '@/components/PendingCaseMonitoring';
 import { KpiCard } from '@/components/KpiCard';
 import { Section } from '@/components/Section';
 import { Field, Select, DateInput } from '@/components/Field';
@@ -74,12 +75,6 @@ export default function Page() {
   const { data, error, isLoading } = useSWR(url, fetcher, { revalidateOnFocus: false });
 
   const options = data?.options;
-  const producingCounts = data ? {
-    producing: data.producingAdvisors.producing.length,
-    pending: data.producingAdvisors.pending.length,
-    nonProducing: data.producingAdvisors.nonProducing.length,
-  } : { producing: 0, pending: 0, nonProducing: 0 };
-
   const filterStatuses = (arr: AdvisorStatus[]) => arr.filter(a => matchesSpaLegFilter(a.spaLeg, spaLegFilter));
 
   const filteredProducing = data ? filterStatuses(data.producingAdvisors.producing) : [];
@@ -406,14 +401,11 @@ export default function Page() {
             </Section>
           ) : null}
 
-          <Section title="Pipeline signals">
-            <div className="grid gap-4 md:grid-cols-4">
-              <KpiCard title="Submitted FYP" value={formatPeso(data.team.submitted.fyp)} icon={<Clock3 size={18} />} />
-              <KpiCard title="Paid FYP" value={formatPeso(data.team.paid.fyp)} />
-              <KpiCard title="Advisors with pending cases" value={formatNumber(producingCounts.pending)} sub="(Name) means already producing" />
-              <KpiCard title="Non-producing advisors" value={formatNumber(producingCounts.nonProducing)} sub="No Submitted / Paid / Approved" />
-            </div>
-          </Section>
+          {data.pendingCases && data.pendingCases.length > 0 ? (
+            <Section title="Pending case monitoring">
+              <PendingCaseMonitoring rows={data.pendingCases} />
+            </Section>
+          ) : null}
 
           {tab === 'team' && data.monthlyExcellenceBadges ? (
             <Section

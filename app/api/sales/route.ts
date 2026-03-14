@@ -18,6 +18,7 @@ import {
   buildConsistentMonthlyProducers,
   buildPpbTracker,
   buildMonthlyExcellenceBadges,
+  buildPendingCases,
 } from '@/lib/metrics';
 import type { ApiResponse, RangePreset } from '@/lib/types';
 import type { SpaLegFilter } from '@/lib/spaLeg';
@@ -326,6 +327,16 @@ export async function GET(req: Request) {
       rosterIndex
     );
 
+    // Pending cases: paid but not yet approved (not range-scoped — shows ALL pending).
+    // Filtered by SPA/LEG and unit like other panels.
+    const allPendingCases = buildPendingCases(rowsSpaLegFiltered, rosterIndex, manilaNow);
+    const pendingCases = unit === 'All'
+      ? allPendingCases
+      : allPendingCases.filter(c => {
+          const re = rosterIndex.get(normalizeName(c.advisor));
+          return re && (re.unit ?? '').trim() === unit;
+        });
+
     const resp: ApiResponse = {
       generatedAt: new Date().toISOString(),
       filters: {
@@ -351,6 +362,7 @@ export async function GET(req: Request) {
       spartanMonitoring,
       legacyMonitoring,
       specialLookouts,
+      pendingCases,
       ppbTracker,
       monthlyExcellenceBadges,
     };
