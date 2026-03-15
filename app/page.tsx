@@ -311,7 +311,7 @@ export default function Page() {
           <td class="remarks">${esc(r.remarks || '—')}</td>
         </tr>`).join('');
       pendingHtml = `
-        <div class="card wide">
+        <div class="card" style="margin-bottom:8px">
           <div class="card-title">Pending Cases
             <span class="dim">${rows.length} cases · ANP ${esc(formatPeso(totalANP))} · FYC ${esc(formatPeso(totalFYC))}</span>
           </div>
@@ -329,7 +329,7 @@ export default function Page() {
       const ppbRows = spaLegFilter === 'All'
         ? ppb.rows
         : ppb.rows.filter(r => matchesSpaLegFilter(r.spaLeg, spaLegFilter));
-      const trs = ppbRows.map(r => `
+      const trs = ppbRows.slice(0, 10).map(r => `
         <tr>
           <td>${esc(r.advisor)}</td>
           <td class="num">${esc(formatPeso(r.fyc))}</td>
@@ -338,8 +338,8 @@ export default function Page() {
           <td class="num">${r.projectedBonus != null ? esc(formatPeso(r.projectedBonus)) : '—'}</td>
         </tr>`).join('');
       ppbHtml = `
-        <div class="card wide">
-          <div class="card-title">PPB Tracker <span class="dim">${esc(ppb.quarter)}</span></div>
+        <div class="card" style="margin-bottom:8px">
+          <div class="card-title">PPB Tracker <span class="dim">${esc(ppb.quarter)}${ppbRows.length > 10 ? ` · Top 10 of ${ppbRows.length}` : ''}</span></div>
           <table>
             <thead><tr><th>Advisor</th><th class="num">FYC</th><th class="num">Cases</th><th class="num">Total %</th><th class="num">Projected</th></tr></thead>
             <tbody>${trs}</tbody>
@@ -357,30 +357,28 @@ export default function Page() {
         const want = spaLegFilter === 'Spartans' ? 'spartan' : 'legacy';
         return arr.filter(r => norm(r.spaLeg) === want);
       };
-      const meaBlock = (title: string, badge: typeof mea.premiums, isCases: boolean) => {
+      const meaCard = (title: string, badge: typeof mea.premiums, isCases: boolean) => {
         const achieved = filterMea(badge.achieved);
         const close = filterMea(badge.close);
-        const hitList = achieved.length
-          ? achieved.map(a => `${esc(a.advisor)} — ${a.tier} (${isCases ? a.value : esc(formatPeso(a.value))})`).join('; ')
-          : 'None';
-        const closeList = close.length
-          ? close.map(c => `${esc(c.advisor)} — ${c.targetTier} (+${isCases ? c.remaining : esc(formatPeso(c.remaining))})`).join('; ')
-          : 'None';
-        return `<div class="sub-title">${esc(title)}</div>
-          <div class="stat-row"><span class="tag hit">Hit</span><span>${hitList}</span></div>
-          <div class="stat-row"><span class="tag close">Close</span><span>${closeList}</span></div>`;
-      };
-      meaHtml = `
-        <div class="card">
-          <div class="card-title">MEA Badges</div>
-          ${meaBlock('Premiums (MDRT FYP)', mea.premiums, false)}
-          ${meaBlock('Saved Lives (Cases)', mea.savedLives, true)}
-          ${meaBlock('Income (FYC)', mea.income, false)}
+        const hitItems = achieved.length
+          ? achieved.map(a => `<li>${esc(a.advisor)} <span class="dim">— ${a.tier} (${isCases ? a.value : esc(formatPeso(a.value))})</span></li>`).join('')
+          : '<li class="dim">None</li>';
+        const closeItems = close.length
+          ? close.map(c => `<li>${esc(c.advisor)} <span class="dim">— ${c.targetTier} (+${isCases ? c.remaining : esc(formatPeso(c.remaining))})</span></li>`).join('')
+          : '<li class="dim">None</li>';
+        return `<div class="card">
+          <div class="card-title">${esc(title)}</div>
+          <div class="sub-title"><span class="tag hit">Hit</span></div><ul>${hitItems}</ul>
+          <div class="sub-title"><span class="tag close">Close</span></div><ul>${closeItems}</ul>
         </div>`;
+      };
+      meaHtml = meaCard('Premiums (MDRT FYP)', mea.premiums, false)
+        + meaCard('Saved Lives (Cases)', mea.savedLives, true)
+        + meaCard('Income (FYC)', mea.income, false);
     }
 
     // Open popup
-    const popup = window.open('', '_blank', 'width=1400,height=900,scrollbars=yes,resizable=yes');
+    const popup = window.open('', '_blank', 'width=900,height=1200,scrollbars=yes,resizable=yes');
     if (!popup) return;
 
     popup.document.write(`<!DOCTYPE html>
@@ -391,7 +389,7 @@ export default function Page() {
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f8fafc; color: #1e293b; font-size: 11px; line-height: 1.4; padding: 16px 20px; }
-  @page { size: landscape; margin: 8mm; }
+  @page { size: portrait; margin: 8mm; }
   @media print { body { background: #fff; padding: 0; } .copy-btn { display: none; } }
   .copy-btn { position: fixed; top: 8px; right: 12px; background: #0f172a; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 11px; cursor: pointer; z-index: 10; }
   .copy-btn:hover { background: #334155; }
@@ -440,7 +438,8 @@ export default function Page() {
 <div class="kpi-row">${kpis}</div>
 <div class="grid">${monitoringHtml}${lookoutsHtml}${advisorHtml}</div>
 ${pendingHtml}
-<div class="wide-row">${ppbHtml}${meaHtml}</div>
+${ppbHtml}
+<div class="grid-3">${meaHtml}</div>
 </body>
 <script>
 function copyAll() {
