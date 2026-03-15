@@ -460,12 +460,9 @@ ${ppbHtml}
 </body>
 <script>
 function savePdf() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,'0');
-  const dd = String(d.getDate()).padStart(2,'0');
-  const unit = '${spaLegFilter === 'All' ? 'Agency' : esc(spaLegFilter)}';
-  document.title = 'Production Summary - ' + unit + ' - ' + yyyy + '-' + mm + '-' + dd;
+  const unitName = '${unit === 'All' ? 'Agency' : esc(unit)}';
+  const endDate = '${esc(data.filters.end)}';
+  document.title = 'Production Summary - ' + unitName + ' - ' + endDate;
   window.print();
 }
 </script>
