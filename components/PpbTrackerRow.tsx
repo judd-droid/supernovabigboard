@@ -109,8 +109,8 @@ export function PpbTrackerRow({
                   <th className="text-right font-semibold py-2 pr-3">{m2}</th>
                   <th className="text-right font-semibold py-2 pr-3">{m3}</th>
                   <th className="text-right font-semibold py-2 pr-3">Total Bonus Rate</th>
-                  <th className="text-right font-semibold py-2 pr-3">PPB Rate</th>
                   <th className="text-right font-semibold py-2 pr-3">Projected Bonus</th>
+                  <th className="text-right font-semibold py-2 pr-3">PPB Rate</th>
                   <th className="text-right font-semibold py-2 pr-3">FYC to Next Bonus Tier</th>
                   <th className="text-right font-semibold py-2 pr-3">CCB Rate</th>
                   <th className="text-right font-semibold py-2">Cases to Next CCB Tier</th>
@@ -149,9 +149,6 @@ export function PpbTrackerRow({
                         <span className="text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">
-                      {r.ppbRate > 0 ? `${Math.round(r.ppbRate * 100)}%` : '—'}
-                    </td>
                     <td className="py-2 pr-3 text-right tabular-nums">
                       {r.projectedBonus == null ? (
                         <span className="text-slate-400">—</span>
@@ -160,6 +157,9 @@ export function PpbTrackerRow({
                           {formatPeso(r.projectedBonus)}
                         </span>
                       )}
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">
+                      {r.ppbRate > 0 ? `${Math.round(r.ppbRate * 100)}%` : '—'}
                     </td>
                     <td className="py-2 pr-3 text-right tabular-nums text-slate-700">
                       {r.fycToNextBonusTier == null ? (
