@@ -191,181 +191,200 @@ export default function Page() {
     return [header, '', cols.join(' | '), ...lines].join('\n');
   }, [data?.ppbTracker, spaLegFilter]);
 
-  const monitoringSummaryText = useMemo(() => {
-    if (spaLegFilter === 'Legacy' && data?.legacyMonitoring) {
-      const d = data.legacyMonitoring;
-      const pct = d.totalLegacies > 0 ? Math.round(d.activityRatio * 100) : 0;
-      const achieversList = d.achievers.length
-        ? d.achievers.map(a => `- ${a.advisor} — ${a.cases} cases${a.isAnimal ? ' (6+)' : ''}`).join('\n')
-        : '- None';
-      return [
-        `### Legacy Monitoring`,
-        '',
-        `Activity Ratio: ${d.producingLegacies}/${d.totalLegacies} (${pct}% producing)`,
-        '',
-        `Legacy Achievers (2+ cases):`,
-        achieversList,
-        '',
-        `FYC: ${formatPeso(d.totals.approvedFyc)} · Cases: ${d.totals.approvedCases} · Avg FYC/case: ${formatPeso(d.totals.avgFycPerCase)}`,
-      ].join('\n');
-    }
-    if (data?.spartanMonitoring) {
-      const d = data.spartanMonitoring;
-      const pct = d.totalSpartans > 0 ? Math.round(d.activityRatio * 100) : 0;
-      const animalsList = d.animals.length
-        ? d.animals.map(a => `- ${a.advisor} — ${a.cases} cases${a.isAnimal ? ' (6+)' : ''}`).join('\n')
-        : '- None';
-      return [
-        `### Spartan Monitoring`,
-        '',
-        `Activity Ratio: ${d.producingSpartans}/${d.totalSpartans} (${pct}% producing)`,
-        '',
-        `Spartan ANIMALs (2+ cases):`,
-        animalsList,
-        '',
-        `FYC: ${formatPeso(d.totals.approvedFyc)} · Cases: ${d.totals.approvedCases} · Avg FYC/case: ${formatPeso(d.totals.avgFycPerCase)}`,
-      ].join('\n');
-    }
-    return '';
-  }, [data, spaLegFilter]);
-
-  const specialLookoutsSummaryText = useMemo(() => {
-    if (!data?.specialLookouts) return '';
-    const ps = data.specialLookouts.productSellers;
-    const cmp = data.specialLookouts.consistentMonthlyProducers;
-
-    const listProducts = (label: string, items: typeof ps.aPlusSignature) => {
-      if (!items.length) return `${label}: None`;
-      return `${label}:\n${items.map(s => `- ${s.advisor} — ${s.product} — ${formatPeso(s.fyc)}`).join('\n')}`;
-    };
-
-    const asOf = (cmp.asOfMonth ?? '').replace('-', '/');
-    const joinNames = (arr: Array<{ advisor: string; streakMonths: number }>) =>
-      arr.length ? arr.map(r => `- ${r.advisor} (${r.streakMonths} mo)`).join('\n') : '- None';
-
-    const salesRoundup = data.specialLookouts.salesRoundup ?? [];
-    const filteredRoundup = spaLegFilter === 'All'
-      ? salesRoundup
-      : salesRoundup.filter(s => matchesSpaLegFilter(s.spaLeg, spaLegFilter));
-    const roundupText = filteredRoundup.length
-      ? filteredRoundup.map(s => {
-          const showAmt = (s.afyc ?? 0) >= 1000;
-          return `- ${s.advisor} — ${s.product}${showAmt ? ` — ${formatPeso(s.afyc)}` : ''}`;
-        }).join('\n')
-      : '- None';
-
-    return [
-      `### Special Lookouts`,
-      '',
-      `Product Lookouts (approved in range):`,
-      listProducts('A+ Signature', ps.aPlusSignature),
-      listProducts('Ascend', ps.ascend),
-      listProducts('FutureSafe USD 5-Pay', ps.futureSafeUsd5Pay),
-      '',
-      `CMP as of ${asOf}:`,
-      `3+ Months:`,
-      joinNames(cmp.threePlus),
-      `2 Months:`,
-      joinNames(cmp.watch2),
-      `1 Month:`,
-      joinNames(cmp.watch1),
-      '',
-      `Sales Round-up:`,
-      roundupText,
-    ].join('\n');
-  }, [data, spaLegFilter]);
-
-  const pendingCasesSummaryText = useMemo(() => {
-    if (!data?.pendingCases || data.pendingCases.length === 0) return '';
-    const rows = data.pendingCases;
-    const totalANP = rows.reduce((s, r) => s + r.anp, 0);
-    const totalFYC = rows.reduce((s, r) => s + r.fyc, 0);
-    const lines = rows.map(r =>
-      `- ${r.advisor} · ${r.product} · ANP ${formatPeso(r.anp)} · FYC ${formatPeso(r.fyc)} · Paid ${r.datePaid.replace(/-/g, '/')} · ${r.daysPending}d pending${r.remarks ? ` · ${r.remarks}` : ''}`
-    );
-    return [
-      `### Pending Case Monitoring`,
-      '',
-      `${rows.length} pending cases · ANP: ${formatPeso(totalANP)} · FYC: ${formatPeso(totalFYC)}`,
-      '',
-      ...lines,
-    ].join('\n');
-  }, [data]);
-
   const openOnePageSummary = useCallback(() => {
     if (!data) return;
 
-    const sections: string[] = [];
+    const s: string[] = [];
+    const fmtDate = (iso: string) => iso.replace(/-/g, '/');
 
-    // Header
-    sections.push(`# New Business Dashboard — 1-Page Summary`);
-    sections.push(`${presetLabel[preset]} · ${fmtDateRange(data.filters.start, data.filters.end)}`);
-    sections.push(`Filter: ${spaLegFilter}`);
-    sections.push('');
+    // Subheading with range and filter
+    s.push(`${presetLabel[preset]} · ${fmtDateRange(data.filters.start, data.filters.end)}`);
+    s.push(`Filter: ${spaLegFilter}`);
 
-    // Approved Performance
-    sections.push(`### Approved Performance`);
-    sections.push('');
-    sections.push(`FYC: ${formatPeso(data.team.approved.fyc)}`);
-    sections.push(`FYP: ${formatPeso(data.team.approved.fyp)}`);
-    sections.push(`ANP: ${formatPeso(data.team.approved.anp)}`);
-    sections.push(`Cases: ${formatNumber(data.team.approved.caseCount)}`);
-    sections.push('');
+    // --- Approved Performance ---
+    s.push('## Approved Performance');
+    s.push(`- FYC: ${formatPeso(data.team.approved.fyc)}`);
+    s.push(`- FYP: ${formatPeso(data.team.approved.fyp)}`);
+    s.push(`- ANP: ${formatPeso(data.team.approved.anp)}`);
+    s.push(`- Cases: ${formatNumber(data.team.approved.caseCount)}`);
+    s.push('---');
 
-    // Monitoring
-    if (monitoringSummaryText) {
-      sections.push(monitoringSummaryText);
-      sections.push('');
-    }
-
-    // Special Lookouts
-    if (specialLookoutsSummaryText) {
-      sections.push(specialLookoutsSummaryText);
-      sections.push('');
-    }
-
-    // PPB Tracker
-    if (ppbTrackerSummaryText) {
-      sections.push(`### PPB Tracker`);
-      sections.push('');
-      // Strip existing header from ppbTrackerSummaryText since we add our own
-      const ppbLines = ppbTrackerSummaryText.split('\n');
-      const ppbBody = ppbLines.slice(ppbLines[1] === '' ? 2 : 1).join('\n');
-      sections.push(ppbBody);
-      sections.push('');
-    }
-
-    // Advisor Production Overview
-    if (advisorOverviewSummary) {
-      // Strip the ## header since we'll use ###
-      const ovLines = advisorOverviewSummary.split('\n');
-      const firstLine = ovLines[0];
-      if (firstLine.startsWith('##')) {
-        sections.push(firstLine.replace('##', '###'));
-        sections.push(ovLines.slice(1).join('\n'));
+    // --- Spartan / Legacy Monitoring ---
+    if (spaLegFilter === 'Legacy' && data.legacyMonitoring) {
+      const d = data.legacyMonitoring;
+      const pct = d.totalLegacies > 0 ? Math.round(d.activityRatio * 100) : 0;
+      s.push('## Legacy Monitoring');
+      s.push(`Activity Ratio: ${d.producingLegacies}/${d.totalLegacies} (${pct}% producing)`);
+      s.push('### Legacy Achievers (2+ cases):');
+      if (d.achievers.length) {
+        d.achievers.forEach(a => s.push(`- ${a.advisor} — ${a.cases} cases`));
       } else {
-        sections.push(advisorOverviewSummary);
+        s.push('- None');
       }
-      sections.push('');
+      s.push('### Legacy FYC and Cases');
+      s.push(`- FYC: ${formatPeso(d.totals.approvedFyc)}`);
+      s.push(`- Cases: ${d.totals.approvedCases}`);
+      s.push(`- Avg FYC/case: ${formatPeso(d.totals.avgFycPerCase)}`);
+      s.push('---');
+    } else if (data.spartanMonitoring) {
+      const d = data.spartanMonitoring;
+      const pct = d.totalSpartans > 0 ? Math.round(d.activityRatio * 100) : 0;
+      s.push('## Spartan Monitoring');
+      s.push(`Activity Ratio: ${d.producingSpartans}/${d.totalSpartans} (${pct}% producing)`);
+      s.push('### Spartan ANIMALs (2+ cases):');
+      if (d.animals.length) {
+        d.animals.forEach(a => s.push(`- ${a.advisor} — ${a.cases} cases`));
+      } else {
+        s.push('- None');
+      }
+      s.push('### Spartan FYC and Cases');
+      s.push(`- FYC: ${formatPeso(d.totals.approvedFyc)}`);
+      s.push(`- Cases: ${d.totals.approvedCases}`);
+      s.push(`- Avg FYC/case: ${formatPeso(d.totals.avgFycPerCase)}`);
+      s.push('---');
     }
 
-    // Pending Cases
-    if (pendingCasesSummaryText) {
-      sections.push(pendingCasesSummaryText);
-      sections.push('');
+    // --- Special Lookouts ---
+    if (data.specialLookouts) {
+      const ps = data.specialLookouts.productSellers;
+      const cmp = data.specialLookouts.consistentMonthlyProducers;
+      s.push('## Special Lookouts');
+
+      s.push('### Product Lookouts with FYC:');
+      const listProd = (label: string, items: typeof ps.aPlusSignature) => {
+        if (!items.length) { s.push(`${label}: None`); return; }
+        s.push(`${label}:`);
+        items.forEach(i => s.push(`- ${i.advisor} — ${i.product} — ${formatPeso(i.fyc)}`));
+      };
+      listProd('A+ Signature', ps.aPlusSignature);
+      listProd('Ascend', ps.ascend);
+      listProd('FutureSafe USD 5-Pay', ps.futureSafeUsd5Pay);
+
+      const asOf = (cmp.asOfMonth ?? '').replace('-', '/');
+      s.push(`### CMP as of ${asOf}:`);
+      const joinCmp = (label: string, arr: Array<{ advisor: string; streakMonths: number }>) => {
+        s.push(`${label}:`);
+        if (!arr.length) { s.push('- None'); return; }
+        arr.forEach(r => s.push(`- ${r.advisor} (${r.streakMonths} mo)`));
+      };
+      joinCmp('3+ Months', cmp.threePlus);
+      joinCmp('2 Months', cmp.watch2);
+      joinCmp('1 Month', cmp.watch1);
+
+      const salesRoundup = data.specialLookouts.salesRoundup ?? [];
+      const filteredRoundup = spaLegFilter === 'All'
+        ? salesRoundup
+        : salesRoundup.filter(sr => matchesSpaLegFilter(sr.spaLeg, spaLegFilter));
+      s.push('### Sales Round-up with AFYC:');
+      if (!filteredRoundup.length) {
+        s.push('- None');
+      } else {
+        filteredRoundup.forEach(sr => {
+          const showAmt = (sr.afyc ?? 0) >= 1000;
+          s.push(`- ${sr.advisor} — ${sr.product}${showAmt ? ` — ${formatPeso(sr.afyc)}` : ''}`);
+        });
+      }
+      s.push('---');
     }
 
-    // Monthly Excellence Awards Badges
-    if (monthlyBadgesSummary) {
-      sections.push(`### Monthly Excellence Awards Badges`);
-      sections.push('');
-      // Strip the existing header
-      const meaLines = monthlyBadgesSummary.split('\n');
-      sections.push(meaLines.slice(1).join('\n'));
-      sections.push('');
+    // --- PPB Tracker ---
+    if (ppbTrackerSummaryText) {
+      // Re-use existing summary but fix header to ##
+      const ppbLines = ppbTrackerSummaryText.split('\n');
+      s.push('## PPB Tracker');
+      // Skip the original header line (starts with "## PPB Tracker")
+      const bodyStart = ppbLines[0].startsWith('##') ? (ppbLines[1] === '' ? 2 : 1) : 0;
+      ppbLines.slice(bodyStart).forEach(l => s.push(l));
+      s.push('---');
     }
 
-    const fullText = sections.join('\n').trim();
+    // --- Advisor Production Overview ---
+    {
+      const producingSet = new Set(filteredProducing.map(a => (a.advisor ?? '').trim().toLowerCase()));
+
+      s.push('## Advisor Production Overview');
+      s.push(`### Producing (${filteredProducing.length})`);
+      if (filteredProducing.length) {
+        filteredProducing.forEach(a => s.push(`- ${(a.advisor ?? '').trim()} — ${formatPeso(a.approved.fyc)}`));
+      } else {
+        s.push('- None');
+      }
+      s.push(`### Pending (${filteredPending.length})`);
+      if (filteredPending.length) {
+        filteredPending.forEach(a => {
+          const name = (a.advisor ?? '').trim();
+          const key = name.toLowerCase();
+          const shown = producingSet.has(key) ? `(${name})` : name;
+          s.push(`- ${shown} — ${formatPeso(a.open.fyc)}`);
+        });
+      } else {
+        s.push('- None');
+      }
+      s.push(`### Non-Producing (${filteredNonProducing.length})`);
+      s.push('---');
+    }
+
+    // --- Pending Case Monitoring ---
+    if (data.pendingCases && data.pendingCases.length > 0) {
+      const rows = data.pendingCases;
+      const totalANP = rows.reduce((acc, r) => acc + r.anp, 0);
+      const totalFYC = rows.reduce((acc, r) => acc + r.fyc, 0);
+      s.push('## Pending Case Monitoring');
+      s.push('### Snapshot');
+      s.push(`- ${rows.length} pending cases`);
+      s.push(`- ANP: ${formatPeso(totalANP)}`);
+      s.push(`- FYC: ${formatPeso(totalFYC)}`);
+      s.push('### Pending Cases');
+      rows.forEach(r => {
+        s.push(`<details>`);
+        s.push(`<summary>${r.policyNumber || '—'} (${r.advisor})</summary>`);
+        s.push(`\t- ${r.product}`);
+        s.push(`\t- ANP ${formatPeso(r.anp)}`);
+        s.push(`\t- FYC ${formatPeso(r.fyc)}`);
+        s.push(`\t- Paid ${fmtDate(r.datePaid)}`);
+        s.push(`\t- ${r.daysPending}d pending`);
+        s.push(`\t- ${r.remarks || 'Pending'}`);
+        s.push(`</details>`);
+      });
+      s.push('---');
+    }
+
+    // --- Monthly Excellence Awards Badges ---
+    if (data.monthlyExcellenceBadges) {
+      const mea = data.monthlyExcellenceBadges;
+      const norm = (v: unknown) => String(v ?? '').trim().toLowerCase();
+      const filterMea = <T extends { spaLeg?: string }>(arr: T[]) => {
+        if (spaLegFilter === 'All') return arr;
+        const want = spaLegFilter === 'Spartans' ? 'spartan' : 'legacy';
+        return arr.filter(r => norm(r.spaLeg) === want);
+      };
+
+      s.push('## Monthly Excellence Awards Badges');
+
+      const meaBlock = (title: string, badge: typeof mea.premiums, isCases: boolean) => {
+        s.push(`### ${title}`);
+        const achieved = filterMea(badge.achieved);
+        const close = filterMea(badge.close);
+        if (achieved.length) {
+          s.push('- Hit:');
+          achieved.forEach(a => s.push(`\t- ${a.advisor} — ${a.tier} (${isCases ? a.value : formatPeso(a.value)})`));
+        } else {
+          s.push('- Hit: None');
+        }
+        if (close.length) {
+          s.push('- Close:');
+          close.forEach(c => s.push(`\t- ${c.advisor} — ${c.targetTier} (+${isCases ? c.remaining : formatPeso(c.remaining)})`));
+        } else {
+          s.push('- Close: None');
+        }
+      };
+
+      meaBlock('Premiums (MDRT FYP)', mea.premiums, false);
+      meaBlock('Saved Lives (Cases)', mea.savedLives, true);
+      meaBlock('Income (FYC)', mea.income, false);
+    }
+
+    const fullText = s.join('\n').trim();
 
     // Open popup window
     const popup = window.open('', '_blank', 'width=800,height=900,scrollbars=yes,resizable=yes');
@@ -403,7 +422,7 @@ export default function Page() {
 </body>
 </html>`);
     popup.document.close();
-  }, [data, preset, spaLegFilter, monitoringSummaryText, specialLookoutsSummaryText, ppbTrackerSummaryText, advisorOverviewSummary, pendingCasesSummaryText, monthlyBadgesSummary]);
+  }, [data, preset, spaLegFilter, ppbTrackerSummaryText, filteredProducing, filteredPending, filteredNonProducing]);
 
   const mdrtSummaryText = useMemo(() => {
     if (!data?.mdrtTracker) return '';
