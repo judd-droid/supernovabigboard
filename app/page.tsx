@@ -337,19 +337,27 @@ export default function Page() {
       const ppbRows = spaLegFilter === 'All'
         ? ppb.rows
         : ppb.rows.filter(r => matchesSpaLegFilter(r.spaLeg, spaLegFilter));
+      const [pm1, pm2, pm3] = ppb.months;
       const trs = ppbRows.slice(0, 10).map(r => `
         <tr>
           <td>${esc(r.advisor)}</td>
           <td class="num">${esc(formatPeso(r.fyc))}</td>
           <td class="num">${r.cases}</td>
-          <td class="num">${pct(r.totalBonusRate)}</td>
+          <td class="num">${r.m1Cases}</td>
+          <td class="num">${r.m2Cases}</td>
+          <td class="num">${r.m3Cases}</td>
+          <td class="num">${r.totalBonusRate > 0 ? pct(r.totalBonusRate) : '—'}</td>
           <td class="num">${r.projectedBonus != null ? esc(formatPeso(r.projectedBonus)) : '—'}</td>
+          <td class="num">${r.ppbRate > 0 ? pct(r.ppbRate) : '—'}</td>
+          <td class="num">${r.fycToNextBonusTier != null ? esc(formatPeso(r.fycToNextBonusTier)) + (r.nextPpbRate != null ? ' (' + pct(r.nextPpbRate) + ')' : '') : '—'}</td>
+          <td class="num">${r.ccbRate != null ? pct(r.ccbRate) : '—'}</td>
+          <td class="num">${r.casesToNextCcbTier != null ? '+' + r.casesToNextCcbTier + (r.nextCcbRate != null ? ' (' + pct(r.nextCcbRate) + ')' : '') : '—'}</td>
         </tr>`).join('');
       ppbHtml = `
         <div class="card" style="margin-bottom:8px">
           <div class="card-title">PPB Tracker <span class="dim">${esc(ppb.quarter)}${ppbRows.length > 10 ? ` · Top 10 of ${ppbRows.length}` : ''}</span></div>
           <table>
-            <thead><tr><th>Advisor</th><th class="num">FYC</th><th class="num">Cases</th><th class="num">Total %</th><th class="num">Projected</th></tr></thead>
+            <thead><tr><th>Advisor</th><th class="num">FYC</th><th class="num">Cases</th><th class="num">${esc(pm1)}</th><th class="num">${esc(pm2)}</th><th class="num">${esc(pm3)}</th><th class="num">Total %</th><th class="num">Projected</th><th class="num">PPB</th><th class="num">Next Tier</th><th class="num">CCB</th><th class="num">Next CCB</th></tr></thead>
             <tbody>${trs}</tbody>
           </table>
         </div>`;
