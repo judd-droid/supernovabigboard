@@ -194,162 +194,161 @@ export default function Page() {
   const openOnePageSummary = useCallback(() => {
     if (!data) return;
 
-    const s: string[] = [];
-    const fmtDate = (iso: string) => iso.replace(/-/g, '/');
+    const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const fmtD = (iso: string) => iso.replace(/-/g, '/');
+    const pct = (n: number) => `${Math.round(n * 100)}%`;
 
-    // Subheading with range and filter
-    s.push(`${presetLabel[preset]} · ${fmtDateRange(data.filters.start, data.filters.end)}`);
-    s.push(`Filter: ${spaLegFilter}`);
+    // --- Build HTML sections ---
 
-    // --- Approved Performance ---
-    s.push('## Approved Performance');
-    s.push(`- FYC: ${formatPeso(data.team.approved.fyc)}`);
-    s.push(`- FYP: ${formatPeso(data.team.approved.fyp)}`);
-    s.push(`- ANP: ${formatPeso(data.team.approved.anp)}`);
-    s.push(`- Cases: ${formatNumber(data.team.approved.caseCount)}`);
-    s.push('---');
+    // KPI cards row
+    const kpis = `
+      <div class="kpi">${esc(formatPeso(data.team.approved.fyc))}<span>FYC</span></div>
+      <div class="kpi">${esc(formatPeso(data.team.approved.fyp))}<span>FYP</span></div>
+      <div class="kpi">${esc(formatPeso(data.team.approved.anp))}<span>ANP</span></div>
+      <div class="kpi">${formatNumber(data.team.approved.caseCount)}<span>Cases</span></div>`;
 
-    // --- Spartan / Legacy Monitoring ---
+    // Monitoring
+    let monitoringHtml = '';
     if (spaLegFilter === 'Legacy' && data.legacyMonitoring) {
       const d = data.legacyMonitoring;
-      const pct = d.totalLegacies > 0 ? Math.round(d.activityRatio * 100) : 0;
-      s.push('## Legacy Monitoring');
-      s.push(`Activity Ratio: ${d.producingLegacies}/${d.totalLegacies} (${pct}% producing)`);
-      s.push('### Legacy Achievers (2+ cases):');
-      if (d.achievers.length) {
-        d.achievers.forEach(a => s.push(`- ${a.advisor} — ${a.cases} cases`));
-      } else {
-        s.push('- None');
-      }
-      s.push('### Legacy FYC and Cases');
-      s.push(`- FYC: ${formatPeso(d.totals.approvedFyc)}`);
-      s.push(`- Cases: ${d.totals.approvedCases}`);
-      s.push(`- Avg FYC/case: ${formatPeso(d.totals.avgFycPerCase)}`);
-      s.push('---');
+      const p = d.totalLegacies > 0 ? Math.round(d.activityRatio * 100) : 0;
+      const animals = d.achievers.length
+        ? d.achievers.map(a => `<li>${esc(a.advisor)} <span class="dim">— ${a.cases} cases</span></li>`).join('')
+        : '<li class="dim">None</li>';
+      monitoringHtml = `
+        <div class="card">
+          <div class="card-title">Legacy Monitoring</div>
+          <div class="big-stat">${d.producingLegacies}/${d.totalLegacies} <span class="dim">(${p}%)</span></div>
+          <div class="sub-label">Activity Ratio</div>
+          <div class="sub-title">Achievers (2+ cases)</div>
+          <ul>${animals}</ul>
+          <div class="stat-row"><span>FYC</span><span>${esc(formatPeso(d.totals.approvedFyc))}</span></div>
+          <div class="stat-row"><span>Cases</span><span>${d.totals.approvedCases}</span></div>
+          <div class="stat-row"><span>Avg/case</span><span>${esc(formatPeso(d.totals.avgFycPerCase))}</span></div>
+        </div>`;
     } else if (data.spartanMonitoring) {
       const d = data.spartanMonitoring;
-      const pct = d.totalSpartans > 0 ? Math.round(d.activityRatio * 100) : 0;
-      s.push('## Spartan Monitoring');
-      s.push(`Activity Ratio: ${d.producingSpartans}/${d.totalSpartans} (${pct}% producing)`);
-      s.push('### Spartan ANIMALs (2+ cases):');
-      if (d.animals.length) {
-        d.animals.forEach(a => s.push(`- ${a.advisor} — ${a.cases} cases`));
-      } else {
-        s.push('- None');
-      }
-      s.push('### Spartan FYC and Cases');
-      s.push(`- FYC: ${formatPeso(d.totals.approvedFyc)}`);
-      s.push(`- Cases: ${d.totals.approvedCases}`);
-      s.push(`- Avg FYC/case: ${formatPeso(d.totals.avgFycPerCase)}`);
-      s.push('---');
+      const p = d.totalSpartans > 0 ? Math.round(d.activityRatio * 100) : 0;
+      const animals = d.animals.length
+        ? d.animals.map(a => `<li>${esc(a.advisor)} <span class="dim">— ${a.cases} cases</span></li>`).join('')
+        : '<li class="dim">None</li>';
+      monitoringHtml = `
+        <div class="card">
+          <div class="card-title">Spartan Monitoring</div>
+          <div class="big-stat">${d.producingSpartans}/${d.totalSpartans} <span class="dim">(${p}%)</span></div>
+          <div class="sub-label">Activity Ratio</div>
+          <div class="sub-title">ANIMALs (2+ cases)</div>
+          <ul>${animals}</ul>
+          <div class="stat-row"><span>FYC</span><span>${esc(formatPeso(d.totals.approvedFyc))}</span></div>
+          <div class="stat-row"><span>Cases</span><span>${d.totals.approvedCases}</span></div>
+          <div class="stat-row"><span>Avg/case</span><span>${esc(formatPeso(d.totals.avgFycPerCase))}</span></div>
+        </div>`;
     }
 
-    // --- Special Lookouts ---
+    // Special Lookouts
+    let lookoutsHtml = '';
     if (data.specialLookouts) {
       const ps = data.specialLookouts.productSellers;
       const cmp = data.specialLookouts.consistentMonthlyProducers;
-      s.push('## Special Lookouts');
-
-      s.push('### Product Lookouts with FYC:');
-      const listProd = (label: string, items: typeof ps.aPlusSignature) => {
-        if (!items.length) { s.push(`${label}: None`); return; }
-        s.push(`${label}:`);
-        items.forEach(i => s.push(`- ${i.advisor} — ${i.product} — ${formatPeso(i.fyc)}`));
-      };
-      listProd('A+ Signature', ps.aPlusSignature);
-      listProd('Ascend', ps.ascend);
-      listProd('FutureSafe USD 5-Pay', ps.futureSafeUsd5Pay);
-
       const asOf = (cmp.asOfMonth ?? '').replace('-', '/');
-      s.push(`### CMP as of ${asOf}:`);
-      const joinCmp = (label: string, arr: Array<{ advisor: string; streakMonths: number }>) => {
-        s.push(`${label}:`);
-        if (!arr.length) { s.push('- None'); return; }
-        arr.forEach(r => s.push(`- ${r.advisor} (${r.streakMonths} mo)`));
+
+      const prodList = (label: string, items: typeof ps.aPlusSignature) => {
+        if (!items.length) return `<div class="prod-row"><span class="dim">${esc(label)}: None</span></div>`;
+        return items.map(i => `<div class="prod-row"><span>${esc(i.advisor)}</span><span class="dim">${esc(formatPeso(i.fyc))}</span></div>`).join('');
       };
-      joinCmp('3+ Months', cmp.threePlus);
-      joinCmp('2 Months', cmp.watch2);
-      joinCmp('1 Month', cmp.watch1);
 
-      const salesRoundup = data.specialLookouts.salesRoundup ?? [];
-      const filteredRoundup = spaLegFilter === 'All'
-        ? salesRoundup
-        : salesRoundup.filter(sr => matchesSpaLegFilter(sr.spaLeg, spaLegFilter));
-      s.push('### Sales Round-up with AFYC:');
-      if (!filteredRoundup.length) {
-        s.push('- None');
-      } else {
-        filteredRoundup.forEach(sr => {
-          const showAmt = (sr.afyc ?? 0) >= 1000;
-          s.push(`- ${sr.advisor} — ${sr.product}${showAmt ? ` — ${formatPeso(sr.afyc)}` : ''}`);
-        });
-      }
-      s.push('---');
+      const cmpList = (arr: Array<{ advisor: string; streakMonths: number }>) =>
+        arr.length ? arr.map(r => `<li>${esc(r.advisor)} <span class="dim">(${r.streakMonths} mo)</span></li>`).join('') : '<li class="dim">None</li>';
+
+      lookoutsHtml = `
+        <div class="card">
+          <div class="card-title">Product Lookouts</div>
+          <div class="sub-title">A+ Signature</div>${prodList('A+ Signature', ps.aPlusSignature)}
+          <div class="sub-title">Ascend</div>${prodList('Ascend', ps.ascend)}
+          <div class="sub-title">FutureSafe USD 5-Pay</div>${prodList('FutureSafe USD 5-Pay', ps.futureSafeUsd5Pay)}
+        </div>
+        <div class="card">
+          <div class="card-title">CMP <span class="dim">as of ${esc(asOf)}</span></div>
+          <div class="sub-title">3+ Months</div><ul>${cmpList(cmp.threePlus)}</ul>
+          <div class="sub-title">2 Months</div><ul>${cmpList(cmp.watch2)}</ul>
+          <div class="sub-title">1 Month</div><ul>${cmpList(cmp.watch1)}</ul>
+        </div>`;
     }
 
-    // --- PPB Tracker ---
-    if (ppbTrackerSummaryText) {
-      // Re-use existing summary but fix header to ##
-      const ppbLines = ppbTrackerSummaryText.split('\n');
-      s.push('## PPB Tracker');
-      // Skip the original header line (starts with "## PPB Tracker")
-      const bodyStart = ppbLines[0].startsWith('##') ? (ppbLines[1] === '' ? 2 : 1) : 0;
-      ppbLines.slice(bodyStart).forEach(l => s.push(l));
-      s.push('---');
-    }
+    // Advisor Overview
+    const producingSet = new Set(filteredProducing.map(a => (a.advisor ?? '').trim().toLowerCase()));
+    const advisorRows = (arr: AdvisorStatus[], getAmt: (a: AdvisorStatus) => string, wrap = false) =>
+      arr.length ? arr.map(a => {
+        const name = (a.advisor ?? '').trim();
+        const shown = wrap && producingSet.has(name.toLowerCase()) ? `(${name})` : name;
+        return `<div class="prod-row"><span>${esc(shown)}</span><span>${esc(getAmt(a))}</span></div>`;
+      }).join('') : '<div class="dim">None</div>';
 
-    // --- Advisor Production Overview ---
-    {
-      const producingSet = new Set(filteredProducing.map(a => (a.advisor ?? '').trim().toLowerCase()));
+    const advisorHtml = `
+      <div class="card">
+        <div class="card-title">Advisor Production</div>
+        <div class="badge green">Producing (${filteredProducing.length})</div>
+        ${advisorRows(filteredProducing, a => formatPeso(a.approved.fyc))}
+        <div class="badge amber">Pending (${filteredPending.length})</div>
+        ${advisorRows(filteredPending, a => formatPeso(a.open.fyc), true)}
+        <div class="badge red">Non-Producing (${filteredNonProducing.length})</div>
+      </div>`;
 
-      s.push('## Advisor Production Overview');
-      s.push(`### Producing (${filteredProducing.length})`);
-      if (filteredProducing.length) {
-        filteredProducing.forEach(a => s.push(`- ${(a.advisor ?? '').trim()} — ${formatPeso(a.approved.fyc)}`));
-      } else {
-        s.push('- None');
-      }
-      s.push(`### Pending (${filteredPending.length})`);
-      if (filteredPending.length) {
-        filteredPending.forEach(a => {
-          const name = (a.advisor ?? '').trim();
-          const key = name.toLowerCase();
-          const shown = producingSet.has(key) ? `(${name})` : name;
-          s.push(`- ${shown} — ${formatPeso(a.open.fyc)}`);
-        });
-      } else {
-        s.push('- None');
-      }
-      s.push(`### Non-Producing (${filteredNonProducing.length})`);
-      s.push('---');
-    }
-
-    // --- Pending Case Monitoring ---
+    // Pending Cases
+    let pendingHtml = '';
     if (data.pendingCases && data.pendingCases.length > 0) {
       const rows = data.pendingCases;
       const totalANP = rows.reduce((acc, r) => acc + r.anp, 0);
       const totalFYC = rows.reduce((acc, r) => acc + r.fyc, 0);
-      s.push('## Pending Case Monitoring');
-      s.push('### Snapshot');
-      s.push(`- ${rows.length} pending cases`);
-      s.push(`- ANP: ${formatPeso(totalANP)}`);
-      s.push(`- FYC: ${formatPeso(totalFYC)}`);
-      s.push('### Pending Cases');
-      rows.forEach(r => {
-        s.push(`<details>`);
-        s.push(`<summary>${r.policyNumber || '—'} (${r.advisor})</summary>`);
-        s.push(`\t- ${r.product}`);
-        s.push(`\t- ANP ${formatPeso(r.anp)}`);
-        s.push(`\t- FYC ${formatPeso(r.fyc)}`);
-        s.push(`\t- Paid ${fmtDate(r.datePaid)}`);
-        s.push(`\t- ${r.daysPending}d pending`);
-        s.push(`\t- ${r.remarks || 'Pending'}`);
-        s.push(`</details>`);
-      });
-      s.push('---');
+      const trs = rows.map(r => `
+        <tr>
+          <td>${esc(r.advisor)}</td>
+          <td>${esc(r.product)}</td>
+          <td class="num">${esc(formatPeso(r.anp))}</td>
+          <td class="num">${esc(formatPeso(r.fyc))}</td>
+          <td>${fmtD(r.datePaid)}</td>
+          <td class="num ${r.daysPending >= 30 ? 'urgent' : ''}">${r.daysPending}d</td>
+          <td class="remarks">${esc(r.remarks || '—')}</td>
+        </tr>`).join('');
+      pendingHtml = `
+        <div class="card wide">
+          <div class="card-title">Pending Cases
+            <span class="dim">${rows.length} cases · ANP ${esc(formatPeso(totalANP))} · FYC ${esc(formatPeso(totalFYC))}</span>
+          </div>
+          <table>
+            <thead><tr><th>Advisor</th><th>Product</th><th class="num">ANP</th><th class="num">FYC</th><th>Paid</th><th class="num">Days</th><th>Remarks</th></tr></thead>
+            <tbody>${trs}</tbody>
+          </table>
+        </div>`;
     }
 
-    // --- Monthly Excellence Awards Badges ---
+    // PPB Tracker
+    let ppbHtml = '';
+    if (data.ppbTracker) {
+      const ppb = data.ppbTracker;
+      const ppbRows = spaLegFilter === 'All'
+        ? ppb.rows
+        : ppb.rows.filter(r => matchesSpaLegFilter(r.spaLeg, spaLegFilter));
+      const trs = ppbRows.map(r => `
+        <tr>
+          <td>${esc(r.advisor)}</td>
+          <td class="num">${esc(formatPeso(r.fyc))}</td>
+          <td class="num">${r.cases}</td>
+          <td class="num">${pct(r.totalBonusRate)}</td>
+          <td class="num">${r.projectedBonus != null ? esc(formatPeso(r.projectedBonus)) : '—'}</td>
+        </tr>`).join('');
+      ppbHtml = `
+        <div class="card wide">
+          <div class="card-title">PPB Tracker <span class="dim">${esc(ppb.quarter)}</span></div>
+          <table>
+            <thead><tr><th>Advisor</th><th class="num">FYC</th><th class="num">Cases</th><th class="num">Total %</th><th class="num">Projected</th></tr></thead>
+            <tbody>${trs}</tbody>
+          </table>
+        </div>`;
+    }
+
+    // MEA Badges
+    let meaHtml = '';
     if (data.monthlyExcellenceBadges) {
       const mea = data.monthlyExcellenceBadges;
       const norm = (v: unknown) => String(v ?? '').trim().toLowerCase();
@@ -358,36 +357,30 @@ export default function Page() {
         const want = spaLegFilter === 'Spartans' ? 'spartan' : 'legacy';
         return arr.filter(r => norm(r.spaLeg) === want);
       };
-
-      s.push('## Monthly Excellence Awards Badges');
-
       const meaBlock = (title: string, badge: typeof mea.premiums, isCases: boolean) => {
-        s.push(`### ${title}`);
         const achieved = filterMea(badge.achieved);
         const close = filterMea(badge.close);
-        if (achieved.length) {
-          s.push('- Hit:');
-          achieved.forEach(a => s.push(`\t- ${a.advisor} — ${a.tier} (${isCases ? a.value : formatPeso(a.value)})`));
-        } else {
-          s.push('- Hit: None');
-        }
-        if (close.length) {
-          s.push('- Close:');
-          close.forEach(c => s.push(`\t- ${c.advisor} — ${c.targetTier} (+${isCases ? c.remaining : formatPeso(c.remaining)})`));
-        } else {
-          s.push('- Close: None');
-        }
+        const hitList = achieved.length
+          ? achieved.map(a => `${esc(a.advisor)} — ${a.tier} (${isCases ? a.value : esc(formatPeso(a.value))})`).join('; ')
+          : 'None';
+        const closeList = close.length
+          ? close.map(c => `${esc(c.advisor)} — ${c.targetTier} (+${isCases ? c.remaining : esc(formatPeso(c.remaining))})`).join('; ')
+          : 'None';
+        return `<div class="sub-title">${esc(title)}</div>
+          <div class="stat-row"><span class="tag hit">Hit</span><span>${hitList}</span></div>
+          <div class="stat-row"><span class="tag close">Close</span><span>${closeList}</span></div>`;
       };
-
-      meaBlock('Premiums (MDRT FYP)', mea.premiums, false);
-      meaBlock('Saved Lives (Cases)', mea.savedLives, true);
-      meaBlock('Income (FYC)', mea.income, false);
+      meaHtml = `
+        <div class="card">
+          <div class="card-title">MEA Badges</div>
+          ${meaBlock('Premiums (MDRT FYP)', mea.premiums, false)}
+          ${meaBlock('Saved Lives (Cases)', mea.savedLives, true)}
+          ${meaBlock('Income (FYC)', mea.income, false)}
+        </div>`;
     }
 
-    const fullText = s.join('\n').trim();
-
-    // Open popup window
-    const popup = window.open('', '_blank', 'width=800,height=900,scrollbars=yes,resizable=yes');
+    // Open popup
+    const popup = window.open('', '_blank', 'width=1400,height=900,scrollbars=yes,resizable=yes');
     if (!popup) return;
 
     popup.document.write(`<!DOCTYPE html>
@@ -397,32 +390,74 @@ export default function Page() {
 <title>1-Page Summary</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; padding: 32px; background: #fff; color: #1e293b; line-height: 1.6; }
-  .copy-btn { position: fixed; top: 16px; right: 16px; background: #0f172a; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; z-index: 10; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f8fafc; color: #1e293b; font-size: 11px; line-height: 1.4; padding: 16px 20px; }
+  @page { size: landscape; margin: 8mm; }
+  @media print { body { background: #fff; padding: 0; } .copy-btn { display: none; } }
+  .copy-btn { position: fixed; top: 8px; right: 12px; background: #0f172a; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 11px; cursor: pointer; z-index: 10; }
   .copy-btn:hover { background: #334155; }
   .copy-btn.copied { background: #059669; }
-  pre { white-space: pre-wrap; word-wrap: break-word; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+  .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #e2e8f0; }
+  .header h1 { font-size: 14px; font-weight: 700; }
+  .header .sub { font-size: 11px; color: #64748b; }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+  .kpi { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; font-size: 16px; font-weight: 700; text-align: center; }
+  .kpi span { display: block; font-size: 9px; font-weight: 500; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+  .wide-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; overflow: hidden; }
+  .card.wide { grid-column: 1 / -1; }
+  .card-title { font-size: 11px; font-weight: 700; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .sub-title { font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .4px; margin-top: 4px; margin-bottom: 2px; }
+  .sub-label { font-size: 9px; color: #94a3b8; margin-top: -2px; margin-bottom: 4px; }
+  .big-stat { font-size: 20px; font-weight: 700; }
+  .dim { color: #94a3b8; font-weight: 400; }
+  ul { list-style: none; padding: 0; }
+  ul li { padding: 1px 0; font-size: 11px; }
+  .prod-row { display: flex; justify-content: space-between; gap: 4px; padding: 1px 0; font-size: 11px; }
+  .stat-row { display: flex; justify-content: space-between; gap: 4px; padding: 1px 0; font-size: 11px; }
+  .badge { display: inline-block; font-size: 9px; font-weight: 600; padding: 1px 6px; border-radius: 4px; margin-top: 4px; margin-bottom: 2px; }
+  .badge.green { background: #dcfce7; color: #166534; }
+  .badge.amber { background: #fef3c7; color: #92400e; }
+  .badge.red { background: #fee2e2; color: #991b1b; }
+  .tag { font-size: 9px; font-weight: 600; padding: 0 4px; border-radius: 3px; white-space: nowrap; }
+  .tag.hit { background: #dcfce7; color: #166534; }
+  .tag.close { background: #fef3c7; color: #92400e; }
+  table { width: 100%; border-collapse: collapse; font-size: 10px; }
+  th { text-align: left; font-weight: 600; color: #64748b; padding: 3px 6px; border-bottom: 1px solid #e2e8f0; font-size: 9px; text-transform: uppercase; letter-spacing: .3px; }
+  td { padding: 2px 6px; border-bottom: 1px solid #f1f5f9; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .urgent { color: #dc2626; font-weight: 600; }
+  .remarks { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #64748b; }
 </style>
 </head>
 <body>
-<button class="copy-btn" onclick="copyAll()">Copy</button>
-<pre id="content"></pre>
-<script>
-  document.getElementById('content').textContent = ${JSON.stringify(fullText)};
-  function copyAll() {
-    var text = document.getElementById('content').textContent;
-    navigator.clipboard.writeText(text).then(function() {
-      var btn = document.querySelector('.copy-btn');
-      btn.textContent = 'Copied!';
-      btn.classList.add('copied');
-      setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
-    });
-  }
-</script>
+<button class="copy-btn" onclick="copyAll()">Copy Text</button>
+<div class="header">
+  <h1>Production Report</h1>
+  <div class="sub">${esc(presetLabel[preset])} · ${esc(fmtDateRange(data.filters.start, data.filters.end))} · ${esc(spaLegFilter)}</div>
+</div>
+<div class="kpi-row">${kpis}</div>
+<div class="grid">${monitoringHtml}${lookoutsHtml}${advisorHtml}</div>
+${pendingHtml}
+<div class="wide-row">${ppbHtml}${meaHtml}</div>
 </body>
+<script>
+function copyAll() {
+  var body = document.body.cloneNode(true);
+  body.querySelector('.copy-btn')?.remove();
+  var text = body.innerText;
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(function() { btn.textContent = 'Copy Text'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+</script>
 </html>`);
     popup.document.close();
-  }, [data, preset, spaLegFilter, ppbTrackerSummaryText, filteredProducing, filteredPending, filteredNonProducing]);
+  }, [data, preset, spaLegFilter, filteredProducing, filteredPending, filteredNonProducing]);
 
   const mdrtSummaryText = useMemo(() => {
     if (!data?.mdrtTracker) return '';
