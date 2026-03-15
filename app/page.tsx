@@ -449,7 +449,7 @@ export default function Page() {
 <body>
 <button class="save-btn" onclick="savePdf()">Save to PDF</button>
 <div class="header">
-  <h1>Production Report</h1>
+  <h1>Production Report: ${unit === 'All' ? 'Agency' : esc(unit)}</h1>
   <div class="sub">${esc(presetLabel[preset])} · ${esc(fmtDateRange(data.filters.start, data.filters.end))} · ${esc(spaLegFilter)}</div>
 </div>
 <div class="kpi-row">${kpis}</div>
