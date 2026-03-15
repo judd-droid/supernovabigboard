@@ -1,7 +1,7 @@
 'use client';
 
 import useSWR from 'swr';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { TrendingUp, CheckCircle2, Users, LogOut } from 'lucide-react';
 
 import type { ApiResponse, RangePreset, AdvisorStatus } from '@/lib/types';
@@ -191,6 +191,220 @@ export default function Page() {
     return [header, '', cols.join(' | '), ...lines].join('\n');
   }, [data?.ppbTracker, spaLegFilter]);
 
+  const monitoringSummaryText = useMemo(() => {
+    if (spaLegFilter === 'Legacy' && data?.legacyMonitoring) {
+      const d = data.legacyMonitoring;
+      const pct = d.totalLegacies > 0 ? Math.round(d.activityRatio * 100) : 0;
+      const achieversList = d.achievers.length
+        ? d.achievers.map(a => `- ${a.advisor} — ${a.cases} cases${a.isAnimal ? ' (6+)' : ''}`).join('\n')
+        : '- None';
+      return [
+        `### Legacy Monitoring`,
+        '',
+        `Activity Ratio: ${d.producingLegacies}/${d.totalLegacies} (${pct}% producing)`,
+        '',
+        `Legacy Achievers (2+ cases):`,
+        achieversList,
+        '',
+        `FYC: ${formatPeso(d.totals.approvedFyc)} · Cases: ${d.totals.approvedCases} · Avg FYC/case: ${formatPeso(d.totals.avgFycPerCase)}`,
+      ].join('\n');
+    }
+    if (data?.spartanMonitoring) {
+      const d = data.spartanMonitoring;
+      const pct = d.totalSpartans > 0 ? Math.round(d.activityRatio * 100) : 0;
+      const animalsList = d.animals.length
+        ? d.animals.map(a => `- ${a.advisor} — ${a.cases} cases${a.isAnimal ? ' (6+)' : ''}`).join('\n')
+        : '- None';
+      return [
+        `### Spartan Monitoring`,
+        '',
+        `Activity Ratio: ${d.producingSpartans}/${d.totalSpartans} (${pct}% producing)`,
+        '',
+        `Spartan ANIMALs (2+ cases):`,
+        animalsList,
+        '',
+        `FYC: ${formatPeso(d.totals.approvedFyc)} · Cases: ${d.totals.approvedCases} · Avg FYC/case: ${formatPeso(d.totals.avgFycPerCase)}`,
+      ].join('\n');
+    }
+    return '';
+  }, [data, spaLegFilter]);
+
+  const specialLookoutsSummaryText = useMemo(() => {
+    if (!data?.specialLookouts) return '';
+    const ps = data.specialLookouts.productSellers;
+    const cmp = data.specialLookouts.consistentMonthlyProducers;
+
+    const listProducts = (label: string, items: typeof ps.aPlusSignature) => {
+      if (!items.length) return `${label}: None`;
+      return `${label}:\n${items.map(s => `- ${s.advisor} — ${s.product} — ${formatPeso(s.fyc)}`).join('\n')}`;
+    };
+
+    const asOf = (cmp.asOfMonth ?? '').replace('-', '/');
+    const joinNames = (arr: Array<{ advisor: string; streakMonths: number }>) =>
+      arr.length ? arr.map(r => `- ${r.advisor} (${r.streakMonths} mo)`).join('\n') : '- None';
+
+    const salesRoundup = data.specialLookouts.salesRoundup ?? [];
+    const filteredRoundup = spaLegFilter === 'All'
+      ? salesRoundup
+      : salesRoundup.filter(s => matchesSpaLegFilter(s.spaLeg, spaLegFilter));
+    const roundupText = filteredRoundup.length
+      ? filteredRoundup.map(s => {
+          const showAmt = (s.afyc ?? 0) >= 1000;
+          return `- ${s.advisor} — ${s.product}${showAmt ? ` — ${formatPeso(s.afyc)}` : ''}`;
+        }).join('\n')
+      : '- None';
+
+    return [
+      `### Special Lookouts`,
+      '',
+      `Product Lookouts (approved in range):`,
+      listProducts('A+ Signature', ps.aPlusSignature),
+      listProducts('Ascend', ps.ascend),
+      listProducts('FutureSafe USD 5-Pay', ps.futureSafeUsd5Pay),
+      '',
+      `CMP as of ${asOf}:`,
+      `3+ Months:`,
+      joinNames(cmp.threePlus),
+      `2 Months:`,
+      joinNames(cmp.watch2),
+      `1 Month:`,
+      joinNames(cmp.watch1),
+      '',
+      `Sales Round-up:`,
+      roundupText,
+    ].join('\n');
+  }, [data, spaLegFilter]);
+
+  const pendingCasesSummaryText = useMemo(() => {
+    if (!data?.pendingCases || data.pendingCases.length === 0) return '';
+    const rows = data.pendingCases;
+    const totalANP = rows.reduce((s, r) => s + r.anp, 0);
+    const totalFYC = rows.reduce((s, r) => s + r.fyc, 0);
+    const lines = rows.map(r =>
+      `- ${r.advisor} · ${r.product} · ANP ${formatPeso(r.anp)} · FYC ${formatPeso(r.fyc)} · Paid ${r.datePaid.replace(/-/g, '/')} · ${r.daysPending}d pending${r.remarks ? ` · ${r.remarks}` : ''}`
+    );
+    return [
+      `### Pending Case Monitoring`,
+      '',
+      `${rows.length} pending cases · ANP: ${formatPeso(totalANP)} · FYC: ${formatPeso(totalFYC)}`,
+      '',
+      ...lines,
+    ].join('\n');
+  }, [data]);
+
+  const openOnePageSummary = useCallback(() => {
+    if (!data) return;
+
+    const sections: string[] = [];
+
+    // Header
+    sections.push(`# New Business Dashboard — 1-Page Summary`);
+    sections.push(`${presetLabel[preset]} · ${fmtDateRange(data.filters.start, data.filters.end)}`);
+    sections.push(`Filter: ${spaLegFilter}`);
+    sections.push('');
+
+    // Approved Performance
+    sections.push(`### Approved Performance`);
+    sections.push('');
+    sections.push(`FYC: ${formatPeso(data.team.approved.fyc)}`);
+    sections.push(`FYP: ${formatPeso(data.team.approved.fyp)}`);
+    sections.push(`ANP: ${formatPeso(data.team.approved.anp)}`);
+    sections.push(`Cases: ${formatNumber(data.team.approved.caseCount)}`);
+    sections.push('');
+
+    // Monitoring
+    if (monitoringSummaryText) {
+      sections.push(monitoringSummaryText);
+      sections.push('');
+    }
+
+    // Special Lookouts
+    if (specialLookoutsSummaryText) {
+      sections.push(specialLookoutsSummaryText);
+      sections.push('');
+    }
+
+    // PPB Tracker
+    if (ppbTrackerSummaryText) {
+      sections.push(`### PPB Tracker`);
+      sections.push('');
+      // Strip existing header from ppbTrackerSummaryText since we add our own
+      const ppbLines = ppbTrackerSummaryText.split('\n');
+      const ppbBody = ppbLines.slice(ppbLines[1] === '' ? 2 : 1).join('\n');
+      sections.push(ppbBody);
+      sections.push('');
+    }
+
+    // Advisor Production Overview
+    if (advisorOverviewSummary) {
+      // Strip the ## header since we'll use ###
+      const ovLines = advisorOverviewSummary.split('\n');
+      const firstLine = ovLines[0];
+      if (firstLine.startsWith('##')) {
+        sections.push(firstLine.replace('##', '###'));
+        sections.push(ovLines.slice(1).join('\n'));
+      } else {
+        sections.push(advisorOverviewSummary);
+      }
+      sections.push('');
+    }
+
+    // Pending Cases
+    if (pendingCasesSummaryText) {
+      sections.push(pendingCasesSummaryText);
+      sections.push('');
+    }
+
+    // Monthly Excellence Awards Badges
+    if (monthlyBadgesSummary) {
+      sections.push(`### Monthly Excellence Awards Badges`);
+      sections.push('');
+      // Strip the existing header
+      const meaLines = monthlyBadgesSummary.split('\n');
+      sections.push(meaLines.slice(1).join('\n'));
+      sections.push('');
+    }
+
+    const fullText = sections.join('\n').trim();
+
+    // Open popup window
+    const popup = window.open('', '_blank', 'width=800,height=900,scrollbars=yes,resizable=yes');
+    if (!popup) return;
+
+    popup.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>1-Page Summary</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; padding: 32px; background: #fff; color: #1e293b; line-height: 1.6; }
+  .copy-btn { position: fixed; top: 16px; right: 16px; background: #0f172a; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; z-index: 10; }
+  .copy-btn:hover { background: #334155; }
+  .copy-btn.copied { background: #059669; }
+  pre { white-space: pre-wrap; word-wrap: break-word; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+</style>
+</head>
+<body>
+<button class="copy-btn" onclick="copyAll()">Copy</button>
+<pre id="content"></pre>
+<script>
+  document.getElementById('content').textContent = ${JSON.stringify(fullText)};
+  function copyAll() {
+    var text = document.getElementById('content').textContent;
+    navigator.clipboard.writeText(text).then(function() {
+      var btn = document.querySelector('.copy-btn');
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+    });
+  }
+</script>
+</body>
+</html>`);
+    popup.document.close();
+  }, [data, preset, spaLegFilter, monitoringSummaryText, specialLookoutsSummaryText, ppbTrackerSummaryText, advisorOverviewSummary, pendingCasesSummaryText, monthlyBadgesSummary]);
+
   const mdrtSummaryText = useMemo(() => {
     if (!data?.mdrtTracker) return '';
     const d = data.mdrtTracker;
@@ -227,13 +441,13 @@ export default function Page() {
                 onClick={() => setTab('team')}
                 className={`px-3 py-2 text-sm rounded-lg ${tab === 'team' ? 'bg-white shadow-sm' : 'text-slate-600'}`}
               >
-                Team View
+                Team
               </button>
               <button
                 onClick={() => setTab('advisor')}
                 className={`px-3 py-2 text-sm rounded-lg ${tab === 'advisor' ? 'bg-white shadow-sm' : 'text-slate-600'}`}
               >
-                Advisor View
+                Advisor
               </button>
             </div>
 
@@ -297,9 +511,10 @@ export default function Page() {
 
             <button
               className="h-10 rounded-xl bg-slate-900 px-4 text-sm text-white shadow-sm hover:bg-slate-800"
-              onClick={() => window.print()}
+              onClick={openOnePageSummary}
+              disabled={!data}
             >
-              Print
+              1-Page
             </button>
 
             <button
