@@ -464,7 +464,8 @@ function savePdf() {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth()+1).padStart(2,'0');
   const dd = String(d.getDate()).padStart(2,'0');
-  document.title = 'Production Summary - ' + yyyy + '-' + mm + '-' + dd;
+  const unit = '${spaLegFilter === 'All' ? 'Agency' : esc(spaLegFilter)}';
+  document.title = 'Production Summary - ' + unit + ' - ' + yyyy + '-' + mm + '-' + dd;
   window.print();
 }
 </script>
