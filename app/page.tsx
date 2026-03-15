@@ -461,7 +461,7 @@ ${ppbHtml}
 <script>
 function savePdf() {
   const unitName = '${unit === 'All' ? 'Agency' : esc(unit)}';
-  const endDate = '${esc(data.filters.end)}';
+  const endDate = '${esc(data.filters.end.slice(0, 10))}';
   document.title = 'Production Summary - ' + unitName + ' - ' + endDate;
   window.print();
 }
