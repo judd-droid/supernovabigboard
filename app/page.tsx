@@ -220,8 +220,10 @@ export default function Page() {
           <div class="card-title">Legacy Monitoring</div>
           <div class="big-stat">${d.producingLegacies}/${d.totalLegacies} <span class="dim">(${p}%)</span></div>
           <div class="sub-label">Activity Ratio</div>
+          <hr class="divider">
           <div class="sub-title">Achievers (2+ cases)</div>
           <ul>${animals}</ul>
+          <hr class="divider">
           <div class="stat-row"><span>FYC</span><span>${esc(formatPeso(d.totals.approvedFyc))}</span></div>
           <div class="stat-row"><span>Cases</span><span>${d.totals.approvedCases}</span></div>
           <div class="stat-row"><span>Avg/case</span><span>${esc(formatPeso(d.totals.avgFycPerCase))}</span></div>
@@ -237,8 +239,10 @@ export default function Page() {
           <div class="card-title">Spartan Monitoring</div>
           <div class="big-stat">${d.producingSpartans}/${d.totalSpartans} <span class="dim">(${p}%)</span></div>
           <div class="sub-label">Activity Ratio</div>
+          <hr class="divider">
           <div class="sub-title">ANIMALs (2+ cases)</div>
           <ul>${animals}</ul>
+          <hr class="divider">
           <div class="stat-row"><span>FYC</span><span>${esc(formatPeso(d.totals.approvedFyc))}</span></div>
           <div class="stat-row"><span>Cases</span><span>${d.totals.approvedCases}</span></div>
           <div class="stat-row"><span>Avg/case</span><span>${esc(formatPeso(d.totals.avgFycPerCase))}</span></div>
@@ -264,13 +268,17 @@ export default function Page() {
         <div class="card">
           <div class="card-title">Product Lookouts</div>
           <div class="sub-title">A+ Signature</div>${prodList('A+ Signature', ps.aPlusSignature)}
+          <hr class="divider">
           <div class="sub-title">Ascend</div>${prodList('Ascend', ps.ascend)}
+          <hr class="divider">
           <div class="sub-title">FutureSafe USD 5-Pay</div>${prodList('FutureSafe USD 5-Pay', ps.futureSafeUsd5Pay)}
         </div>
         <div class="card">
           <div class="card-title">CMP <span class="dim">as of ${esc(asOf)}</span></div>
           <div class="sub-title">3+ Months</div><ul>${cmpList(cmp.threePlus)}</ul>
+          <hr class="divider">
           <div class="sub-title">2 Months</div><ul>${cmpList(cmp.watch2)}</ul>
+          <hr class="divider">
           <div class="sub-title">1 Month</div><ul>${cmpList(cmp.watch1)}</ul>
         </div>`;
     }
@@ -390,10 +398,10 @@ export default function Page() {
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f8fafc; color: #1e293b; font-size: 11px; line-height: 1.4; padding: 16px 20px; }
   @page { size: portrait; margin: 8mm; }
-  @media print { body { background: #fff; padding: 0; } .copy-btn { display: none; } }
-  .copy-btn { position: fixed; top: 8px; right: 12px; background: #0f172a; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 11px; cursor: pointer; z-index: 10; }
-  .copy-btn:hover { background: #334155; }
-  .copy-btn.copied { background: #059669; }
+  @media print { body { background: #fff; padding: 0; } .save-btn { display: none; } }
+  .save-btn { position: fixed; top: 8px; right: 12px; background: #0f172a; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 11px; cursor: pointer; z-index: 10; }
+  .save-btn:hover { background: #334155; }
+  @media print { .save-btn { display: none; } }
   .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #e2e8f0; }
   .header h1 { font-size: 14px; font-weight: 700; }
   .header .sub { font-size: 11px; color: #64748b; }
@@ -427,10 +435,11 @@ export default function Page() {
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .urgent { color: #dc2626; font-weight: 600; }
   .remarks { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #64748b; }
+  .divider { border: none; border-top: 1px solid #e2e8f0; margin: 4px 0; }
 </style>
 </head>
 <body>
-<button class="copy-btn" onclick="copyAll()">Copy Text</button>
+<button class="save-btn" onclick="savePdf()">Save to PDF</button>
 <div class="header">
   <h1>Production Report</h1>
   <div class="sub">${esc(presetLabel[preset])} · ${esc(fmtDateRange(data.filters.start, data.filters.end))} · ${esc(spaLegFilter)}</div>
@@ -442,16 +451,8 @@ ${ppbHtml}
 <div class="grid-3">${meaHtml}</div>
 </body>
 <script>
-function copyAll() {
-  var body = document.body.cloneNode(true);
-  body.querySelector('.copy-btn')?.remove();
-  var text = body.innerText;
-  navigator.clipboard.writeText(text).then(function() {
-    var btn = document.querySelector('.copy-btn');
-    btn.textContent = 'Copied!';
-    btn.classList.add('copied');
-    setTimeout(function() { btn.textContent = 'Copy Text'; btn.classList.remove('copied'); }, 1500);
-  });
+function savePdf() {
+  window.print();
 }
 </script>
 </html>`);
